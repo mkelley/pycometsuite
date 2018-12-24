@@ -20,6 +20,7 @@ __all__ = [
 
 import numpy as np
 
+
 def example_syndynes(filename):
     """Write an example syndyne script.
 
@@ -76,6 +77,7 @@ plt.tight_layout(rect=(0, 0, 0.8, 1))
 plt.draw()
 """.format(synfilename))
 
+
 def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
                    observer=None, **kwargs):
     """Compute and plot syndynes.
@@ -111,7 +113,7 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     import matplotlib.pyplot as plt
 
     if beta is None:
-        beta = np.logspace(-3, -1, 5)
+        beta = np.logspace(-3, 0, 7)
     if observer is None:
         observer = Earth
     if 'labels' not in kwargs:
@@ -138,6 +140,7 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     plt.draw()
 
     return sim
+
 
 def example_coma(filename):
     """Write an example coma script.
@@ -176,6 +179,7 @@ pgen.nparticles = 2000000
 integrator = cs.Kepler()
 cs.run(pgen, integrator, xyzfile='{}.xyz')
 """.format(xyzfilename))
+
 
 def example_coma_parallel(filename):
     """Write an example coma script.

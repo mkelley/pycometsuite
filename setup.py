@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
+from Cython.Build import cythonize
 
 if __name__ == "__main__":
     setup(name='cometsuite',
-          version='0.1.0',
+          version='1.0.0',
           description='Comet dust dynamics.',
           author="Michael S. P. Kelley",
           author_email="msk@astro.umd.edu",
           packages=find_packages(),
+          ext_modules=cythonize('cometsuite/integrator/prop2b.pyx'),
           license='BSD',
           )

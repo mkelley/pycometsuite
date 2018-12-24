@@ -2,14 +2,20 @@
 Keplerian motion.
 """
 
+import numpy as np
+import astropy.constants
+import astropy.units as u
 from .core import Integrator
+from .prop2b import prop2b
+#from spiceypy import prop2b
+from ..state import State
 
 
 class Kepler(Integrator):
     """Keplerian (two-body) motion.
 
-    The solution is computed via a universal variables method in by
-    the NAIF SPICE package.
+    The solution is computed via the universal variables method from
+    the NAIF CSPICE Toolkit.
 
     The default behavior is for orbits around the Sun.
 
@@ -24,7 +30,6 @@ class Kepler(Integrator):
     """
 
     def __init__(self, M=None, GM=None):
-        import astropy.constants
         if M is None and GM is None:
             self.M = astropy.constants.M_sun
         elif M is not None:
@@ -41,7 +46,6 @@ class Kepler(Integrator):
 
     @M.setter
     def M(self, m):
-        import astropy.units as u
         if not isinstance(m, u.Quantity):
             m *= u.kg
         if not m.unit.is_equivalent(u.kg):
@@ -54,27 +58,18 @@ class Kepler(Integrator):
 
     @GM.setter
     def GM(self, gm):
-        import astropy.units as u
         if not isinstance(gm, u.Quantity):
             gm *= u.km**3 / u.s**2
         if not gm.unit.is_equivalent(u.km**3 / u.s**2):
             raise u.UnitsError("GM must have units of length**3 / time**2.")
         self._GM = gm.to(u.km**3 / u.s**2).value
 
-    # def integrate(self, init, dt, beta=0):
-    #    import numpy as np
-    #    from spiceypy import prop2b
-    #    from ..state import State
-
-    #    rv = np.array(prop2b(self.GM * (1 - beta), init.rv, dt))
-    #    return State(rv[:3], rv[3:], init.t + dt / 86400.0)
-
     def integrate(self, init, dt, beta=0):
-        import numpy as np
-        from ..state import State
-        from .prop2b import prop2b
-
-        rv = np.array(prop2b(self.GM * (1 - beta), init.rv, dt))
+        if beta == 1:
+            # linear motion
+            rv = np.r_[init.r + init.v * dt, init.v]
+        else:
+            rv = np.array(prop2b(self.GM * (1 - beta), init.rv, dt))
         return State(rv[:3], rv[3:], init.t + dt / 86400.0)
 
     integrate.__doc__ = Integrator.integrate.__doc__
