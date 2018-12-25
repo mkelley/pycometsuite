@@ -3,3 +3,4 @@ build
 *.pyc
 *.so
 __pycache__
+cometsuite/integrator/prop2b.c

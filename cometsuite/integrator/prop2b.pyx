@@ -37,7 +37,6 @@ def prop2b(double GM, state, double dt):
     eq = np.cross(v, h) / GM - np.array(r) / r0
     e = np.sqrt(np.dot(eq, eq))
     q = h2 / (GM * (e + 1))
-    print(GM, r, v, e)
 
     # constants
     f = 1 - e
@@ -83,8 +82,8 @@ def prop2b(double GM, state, double dt):
                 raise ValueError(
                     ('dt ({}) is beyond the range for which we can '
                      'reliably propagate states.  The limits for this '
-                     'GM and initial state are from {} to {}')
-                    .format(dt, kfunl, kfunu))
+                     'GM and initial state are from {} to {}. {}, {}, {}')
+                    .format(dt, kfunl, kfunu, x, lower, bound))
             fx2 = f * x * x
             c0, c1, c2, c3 = stmp03(fx2)
             kfun = x * (br0 * c1 + x * (b2rv * c2 + x * bq * c3))
@@ -106,8 +105,8 @@ def prop2b(double GM, state, double dt):
                 raise ValueError(
                     ('dt ({}) is beyond the range for which we can '
                      'reliably propagate states.  The limits for this '
-                     'GM and initial state are from {} to {}')
-                    .format(dt, kfunl, kfunu))
+                     'GM and initial state are from {} to {}. {}, {}, {}, {}')
+                    .format(dt, kfunl, kfunu, x, upper, bound, dt/bq))
             fx2 = f * x * x
             c0, c1, c2, c3 = stmp03(fx2)
             kfun = x * (br0 * c1 + x * (b2rv * c2 + x * bq * c3))
