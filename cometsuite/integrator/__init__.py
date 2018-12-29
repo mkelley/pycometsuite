@@ -6,15 +6,15 @@ Integrate particle motions.
 
 __all__ = [
     'Kepler',
-    'Ra15'
+    'Ra15',
+    'BulirschStoer'
 ]
 
-from . import core
-from . import kepler
-from . import ra15
-
+from . import core, kepler, ra15, bulirschstoer
 from .kepler import Kepler
 from .ra15 import Ra15
+from .bulirschstoer import BulirschStoer
+
 
 def test():
     import numpy as np
@@ -49,7 +49,7 @@ def test():
 #    final = k.integrate(init, dt, beta=0.1)
 #    print('\nfinal\n', final)
 #    print('\ndiff\n', final.r - init.r)
-#    
+#
 #    print('\n--- beta = 0.0 ---')
 #    r = Ra15(debug=True*False)
 #    final = r.integrate(init, dt)
@@ -74,4 +74,3 @@ def test():
 #    print('\nfinal\n', final)
 #    import numpy as np
 #    print(np.sqrt(np.sum((final.r - init.r)**2)))
-

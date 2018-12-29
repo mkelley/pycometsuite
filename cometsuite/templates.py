@@ -79,7 +79,7 @@ plt.draw()
 
 
 def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
-                   observer=None, **kwargs):
+                   observer=None, integrator=None, **kwargs):
     """Compute and plot syndynes.
 
     The `Kepler` integrator is used (two-body solution).
@@ -87,19 +87,29 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     Parameters
     ----------
     obj : string
-      The comet name, whose SPICE kernel can be retrieved via
-      `mskpy.getspiceobj(obj)`.
+        The comet name, whose SPICE kernel can be retrieved via
+        `mskpy.getspiceobj(obj)`.
+
     date : various
-      The time of observation in a format acceptable to `mskpy.date2time`.
+        The time of observation in a format acceptable to
+        `mskpy.date2time`.
+
     beta : array, optional
+
     ndays : float, optional
+
     steps : int, optional
-      Parameters for the generator setup function, `syndynes`.  If
-      `beta` is `None`, a default set will be used.
+        Parameters for the generator setup function, `syndynes`.  If
+        `beta` is `None`, a default set will be used.
+
     observer : SolarSysObject, optional
-      The observer.  If `observer` is `None`, Earth will be used.
+        The observer.  If `observer` is `None`, Earth will be used.
+
+    integrator : Integrator, optional
+        Use this integrator, default `Kepler`.
+
     **kwargs
-      Any `synplot` keywords.
+        Any `synplot` keywords.
 
     Returns
     -------
@@ -123,7 +133,9 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     pgen = cs.Coma(target, target.jd, composition=cs.Geometric())
     cs.syndynes(pgen, beta=beta, ndays=ndays, steps=steps)
 
-    integrator = cs.Kepler()
+    if integrator is None:
+        integrator = cs.Kepler()
+
     sim = cs.run(pgen, integrator)
     sim.observer = observer
     sim.observe()
