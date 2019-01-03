@@ -1,3 +1,5 @@
+dist
+cometsuite*egg-info
 build
 *~
 *.pyc
