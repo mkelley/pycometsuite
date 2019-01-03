@@ -34,6 +34,7 @@ __all__ = [
 
 import numpy as np
 
+
 class Particle(object):
     """A particle.
 
@@ -180,6 +181,7 @@ class Particle(object):
         """Time at initial state with respect to final state. [s]"""
         return -self.age
 
+
 class ParticleGenerator(object):
     def __iter__(self):
         return self
@@ -194,6 +196,7 @@ class ParticleGenerator(object):
         for k in ['age', 'speed', 'vhat', 'radius',
                   'speed_scale', 'density_scale']:
             setattr(self, k, eval(str(getattr(self, k))))
+
 
 class Coma(ParticleGenerator):
     """Comet dust grain generator.
@@ -345,6 +348,7 @@ class Coma(ParticleGenerator):
 
         return p
 
+
 class Composition(object):
     """Abstract base class for CometSuite materials.
 
@@ -414,6 +418,7 @@ class Composition(object):
             radius = a
         return radius
 
+
 class AmorphousCarbon(Composition):
     """Amorphous carbon grains.
 
@@ -425,12 +430,13 @@ class AmorphousCarbon(Composition):
     radius : Radius from radiation pressure beta parameter and porosity.
 
     """
+
     def __init__(self):
         from scipy.interpolate import interp2d
         from . import __path__
 
         self.name = 'amorphous carbon'
-        self.rho0 = 2.5
+        self.rho0 = 1.5
         data = np.loadtxt(__path__[0] + '/data/amcarbon-qpr.dat')
         self._p = data[0, 1:]
         self._a = data[1:, 0]
@@ -474,7 +480,7 @@ class AmorphousCarbon(Composition):
 
         """
         return (self.Qpr(radius, porosity) * 0.57 / radius
-                / self.rho0 / (1 - porosity))        
+                / self.rho0 / (1 - porosity))
 
     def radius(self, beta, porosity):
         """Particle radius.
@@ -503,6 +509,7 @@ class AmorphousCarbon(Composition):
             radius = a
         return radius
 
+
 class Geometric(Composition):
     """Material with properties tied to geometric cross section.
 
@@ -512,21 +519,24 @@ class Geometric(Composition):
     ----------
     rho0 : float, optional
       The density of the material. [g/cm3]
-  
+
     Methods
     -------
     beta : Radiation pressure beta parameter from radius and porosity.
     radius : Radius from radiation pressure beta parameter and porosity.
-  
+
     """
+
     def __init__(self, rho0=1.0):
         Composition.__init__(self, 'geometric', rho0, lambda a: 1.0)
 
     def __str__(self):
         return "Geometric(rho0={})".format(self.rho0)
 
+
 class CompositionError(Exception):
     pass
+
 
 def syndynes(pgen, beta=[0.001, 0.01, 0.1, 1], ndays=90, steps=31):
     """Syndyne setup.
