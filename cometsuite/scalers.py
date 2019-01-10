@@ -213,10 +213,6 @@ class PSDScaler(Scaler):
 class ActiveArea(Scaler):
     """Emission from an active area.
 
-    Planetocentric 0 deg longitude is defined using the North Ecliptic
-    Pole: ll00 = pole × NEP.  If the pole is parallel to the NEP, then
-    the Vernal Equinox is used instead.
-
 
     Parameters
     ----------
@@ -245,25 +241,13 @@ class ActiveArea(Scaler):
         a = np.radians(self.pole)
         self.pole_unit = np.array(
             spherical_to_cartesian(1.0, a[1], a[0]))
-        a = np.radians(self.ll)
-        origin = np.array(
-            spherical_to_cartesian(1, a[1], a[0]))
-
-        # longitude, latitude = 0, 0 is derived from the NEP
-        if np.allclose(self.pole_unit, (0, 0, 1)):
-            self.ll00 = np.array((1, 0, 0))
-        elif np.allclose(self.pole_unit, (0, 0, -1)):
-            self.ll00 = np.array((1, 0, 0))
-        else:
-            self.ll00 = np.cross(self.pole_unit, (0, 0, 1))
-            self.ll00 /= np.sqrt(np.dot(self.ll00, self.ll00))
 
         # active area normal vector
-        # 1) rotate pole about y-axis to active source latitude; this
-        #    way, 0 lat for pole = [0, 90] will be the x-axis.
-        # 2) rotate result about pole
-        v = util.vector_rotate(self.pole_unit, (1, 0, 0), origin)
-        self.normal = v / np.sqrt(np.dot(v, v))
+        pi = np.pi
+        o = util.spherical_rot(np.radians(pole[0]), np.radians(pole[1]),
+                               0, pi / 2,
+                               np.radians(ll[0]), np.radians(ll[1]))
+        self.normal = util.lb2xyz(*o)
 
     def __str__(self):
         return 'ActiveArea({}, {}, {})'.format(self.w, self.ll, self.pole)

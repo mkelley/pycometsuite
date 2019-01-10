@@ -10,6 +10,7 @@ if __name__ == "__main__":
           author="Michael S. P. Kelley",
           author_email="msk@astro.umd.edu",
           packages=find_packages(),
+          scripts=glob('scripts/*'),
           data_files=[('cometsuite/data', glob('cometsuite/data/*dat'))],
           ext_modules=cythonize([
               'cometsuite/integrator/prop2b.pyx',

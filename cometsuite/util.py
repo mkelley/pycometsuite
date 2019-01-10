@@ -17,6 +17,61 @@ __all__ = [
 import numpy as np
 
 
+def lb2xyz(lon, lat):
+    """Spherical coordinates to Cartesian."""
+    clat = np.cos(lat)
+    return np.array([clat * np.cos(lon),
+                     clat * np.sin(lon),
+                     np.sin(lat)])
+
+
+def magnitude(v):
+    return np.sqrt(np.dot(v, v))
+
+
+def spherical_rot(lam0, bet0, lam1, bet1, lam, bet):
+    """
+    Based on the IDL routine spherical_coord_rotate.pro written by
+    J.D. Smith, and distributed with CUBISM.
+    """
+
+    if (lam0 == lam1) and (bet0 == bet1):
+        return (lam, bet)
+
+    v0 = lb2xyz(lam0, bet0)
+    v1 = lb2xyz(lam1, bet1)
+    v = lb2xyz(lam, bet)
+
+    # construct coordinate frame with x -> ref point and z -> rotation
+    # axis
+    x = v0
+    z = np.cross(v1, v0)  # rotate about this axis
+    z = z / magnitude(z)  # normalize
+    y = np.cross(z, x)
+    y = y / magnitude(y)
+
+    # construct a new coordinate frame (x along new direction)
+    x2 = v1
+    y2 = np.cross(z, x2)
+    y2 = y2 / magnitude(y2)
+
+    # project onto the inital frame, the re-express in the rotated one
+    if len(v.shape) == 1:
+        v = (v * x).sum() * x2 + (v * y).sum() * y2 + (v * z).sum() * z
+    else:
+        vx = np.dot(v.T, x)
+        vy = np.dot(v.T, y)
+        vz = np.dot(v.T, z)
+        v = vx * np.repeat(x2, v.shape[1]).reshape(v.shape)
+        v += vy * np.repeat(y2, v.shape[1]).reshape(v.shape)
+        v += vz * np.repeat(z,  v.shape[1]).reshape(v.shape)
+
+    bet_new = np.arcsin(v[2])
+    lam_new = np.arctan2(v[1], v[0]) % (2 * np.pi)
+
+    return (lam_new, bet_new)
+
+
 def vector_rotate(v, v_from, v_to):
     """Rotate `v` the same way that `v_from` should be rotated to match `v_to`.
 

@@ -1,0 +1,109 @@
+#!/usr/bin/env python3
+import argparse
+import numpy as np
+from astropy.io import fits
+import astropy.units as u
+from mskpy import spherical_distribution, xyz2lb, Earth, FixedState
+import cometsuite as cs
+import cometsuite.scalers as css
+import cometsuite.generators as csg
+
+
+def arg_array(n, dtype):
+    if n is None:
+        def aa(x):
+            return np.array(x.split(','), dtype)
+    else:
+        def aa(x):
+            xx = x.split(',')
+            if len(xx) != n:
+                raise ValueError('expecting {} elements'.format(n))
+            return np.array(xx, dtype)
+    return aa
+
+
+parser = argparse.ArgumentParser(
+    epilog='--pole and --observer arguments are comma-separated')
+parser.add_argument('files', nargs='+', help='multiple files will be summed')
+parser.add_argument('-n', type=int, default=25,
+                    help='number of sources to test')
+parser.add_argument('-a', type=float, default=-3.5, help='dn/da ~ a^k')
+parser.add_argument('-k', type=float, default=0, help='Q ~ rh^k')
+parser.add_argument('-s', type=int, default=256,
+                    help='single image size, pixels')
+parser.add_argument('--pixel-scale', type=float, default=1,
+                    help='arcsec per pixel')
+parser.add_argument('-o', default='out.fits', help='output image file name')
+parser.add_argument('--pole', type=arg_array(2, float), default=None,
+                    help='ecliptic longitude, latitude (deg) for pole;'
+                    ' default: use -r cross v')
+parser.add_argument('--observer', type=arg_array(3, float), default=None,
+                    help='use this observer position; default: Earth')
+parser.add_argument('--observer-units', default='km',
+                    help='units for --observer vector')
+args = parser.parse_args()
+
+sources = np.degrees(spherical_distribution(args.n))
+w = 4 * np.degrees(np.sqrt(1 / args.n))
+
+if args.observer is None:
+    observer = Earth
+else:
+    xyz = args.observer * u.Unit(args.observer_units).to(u.km)
+    observer = FixedState(xyz)
+
+sim = cs.Simulation(args.files[0], observer=observer, n=0, vebose=False)
+center = np.degrees(sim.sky_coords.target.flatten())
+
+if args.pole is None:
+    r = sim.params['comet']['r']
+    v = sim.params['comet']['v']
+    pole = xyz2lb(np.cross(-r, v))
+else:
+    pole = args.pole
+
+cameras = {}
+for source in sources:
+    production = css.ActiveArea(w, source, pole)
+    if args.k:
+        production *= css.QRh(args.k)
+    gsd = css.PSD_PowerLaw(args.a) * css.PSD_RemoveLogBias()
+
+    camera = cs.Camera(shape=(args.s, args.s),
+                       scale=np.r_[-1, 1] * args.pixel_scale,
+                       center=center, scaler=production * gsd)
+    cameras[str(source)] = camera
+
+for f in args.files:
+    sim = cs.Simulation(f, observer=observer)
+    for source, camera in cameras.items():
+        camera.integrate(sim)
+
+lats = np.sort(np.unique(sources[:, 1]))
+n_lat = len(lats)
+n_lon = max((sum(sources[:, 1] == lat) for lat in np.unique(lats)))
+
+grid = [np.linspace(0 - w / 2, 360 + w / 2, n_lon + 1),
+        np.linspace(-90 - w / 2, 90 + w / 2, n_lat + 1)]
+
+im = np.zeros((args.s * n_lat, args.s * n_lon))
+last = sources[0, 1]
+annotations = ['']
+for source in sources:
+    if source[1] != last:
+        annotations.append('')
+        last = source[1]
+
+    annotations[-1] += '{:^9} '.format('({:.0f},{:.0f})'.format(*source))
+
+    subim = cameras[str(source)].data
+
+    x = np.digitize(source[0], grid[0]) - 1
+    y = np.digitize(source[1], grid[1]) - 1
+
+    im[y * args.s:(y + 1) * args.s, x * args.s:(x + 1) * args.s] = subim
+
+fits.writeto(args.o, im, overwrite=True)
+
+annotations = '\n'.join(annotations[::-1])
+print(annotations)
