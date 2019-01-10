@@ -69,6 +69,8 @@ __all__ = [
 
 import numpy as np
 import astropy.units as u
+from astropy.coordinates import spherical_to_cartesian
+from . import util
 
 
 class InvalidScaler(Exception):
@@ -211,17 +213,22 @@ class PSDScaler(Scaler):
 class ActiveArea(Scaler):
     """Emission from an active area.
 
-    Planetocentric 0 deg longitude is defined using the Vernal
-    Equinox.
+    Planetocentric 0 deg longitude is defined using the North Ecliptic
+    Pole: ll00 = pole × NEP.  If the pole is parallel to the NEP, then
+    the Vernal Equinox is used instead.
+
 
     Parameters
     ----------
     w : float
-      Cone full opening angle. [deg]
+        Cone full opening angle. [deg]
+
     ll : array
-      Longitude and latitude of the active area. [deg]
+        Longitude and latitude of the active area. [deg]
+
     pole : array
-      Ecliptic longitude and latitude of the pole. [deg]
+        Ecliptic longitude and latitude of the pole. [deg]
+
 
     Methods
     -------
@@ -230,26 +237,33 @@ class ActiveArea(Scaler):
     """
 
     def __init__(self, w, ll, pole):
-        from astropy.coordinates import spherical_to_cartesian
-        from mskpy.util import vector_rotate
-
         self.w = w
-        self.ll = ll
-        self.pole = pole
+        self.ll = list(ll)
+        self.pole = list(pole)
 
         # pole and origin unit vector
-        p = spherical_to_cartesian(1.0, np.radians(self.ll[1]),
-                                   np.radians(self.ll[0]))
-        self.pole_unit = np.array(p)
+        a = np.radians(self.pole)
+        self.pole_unit = np.array(
+            spherical_to_cartesian(1.0, a[1], a[0]))
+        a = np.radians(self.ll)
+        origin = np.array(
+            spherical_to_cartesian(1, a[1], a[0]))
+
+        # longitude, latitude = 0, 0 is derived from the NEP
+        if np.allclose(self.pole_unit, (0, 0, 1)):
+            self.ll00 = np.array((1, 0, 0))
+        elif np.allclose(self.pole_unit, (0, 0, -1)):
+            self.ll00 = np.array((1, 0, 0))
+        else:
+            self.ll00 = np.cross(self.pole_unit, (0, 0, 1))
+            self.ll00 /= np.sqrt(np.dot(self.ll00, self.ll00))
 
         # active area normal vector
-        # 1) rotate pole about y-axis; this way, 0 lat for pole = [0,
-        #    90] will be the x-axis.
+        # 1) rotate pole about y-axis to active source latitude; this
+        #    way, 0 lat for pole = [0, 90] will be the x-axis.
         # 2) rotate result about pole
-        v = vector_rotate(self.pole_unit, np.r_[0, 1, 0],
-                          np.radians(-(self.ll[1] + 90)))
-        self.normal = vector_rotate(v, self.pole_unit, np.radians(self.ll[0]))
-        self.normal /= np.sqrt(np.dot(self.normal, self.normal))
+        v = util.vector_rotate(self.pole_unit, (1, 0, 0), origin)
+        self.normal = v / np.sqrt(np.dot(v, v))
 
     def __str__(self):
         return 'ActiveArea({}, {}, {})'.format(self.w, self.ll, self.pole)
@@ -315,58 +329,44 @@ class FractalPorosity(Scaler):
         return (p.radius / self.a0)**(self.D - 3.0)
 
 
-class GaussianActiveArea(Scaler):
+class GaussianActiveArea(ActiveArea):
     """Emission from an active area with a normal distribution.
 
-    Planetocentric 0 deg longitude is defined using the Vernal
-    Equinox.
+    Planetocentric 0 deg longitude is defined using the North Ecliptic
+    Pole: ll00 = pole × NEP.  If the pole is parallel to the NEP, then
+    the Vernal Equinox is used instead.
+
 
     Parameters
     ----------
     w : float
-      Cone full opening angle. [deg]
+        Cone full opening angle. [deg]
+
     sig : float
-      Sigma of Gaussian function defining the activity. [deg]
+        Sigma of Gaussian function defining the activity. [deg]
+
     ll : array
-      Longitude and latitude of the active area. [deg]
+        Longitude and latitude of the active area. [deg]
+
     pole : array
-      Ecliptic longitude and latitude of the pole. [deg]
+        Ecliptic longitude and latitude of the pole. [deg]
+
 
     Methods
     -------
-    scale : Scale factor - 1 inside cone, 0 outside.
+    scale : Scale factor: 0 to 1 inside the cone, 0 outside.
 
     """
 
     def __init__(self, w, sig, ll, pole):
-        from astropy.coordinates import spherical_to_cartesian
-        from mskpy.util import vector_rotate
-
-        self.w = w
+        super().__init__(w, ll, pole)
         self.sig = sig
-        self.ll = ll
-        self.pole = pole
-
-        # pole and origin unit vector
-        p = spherical_to_cartesian(1.0, np.radians(self.ll[1]),
-                                   np.radians(self.ll[0]))
-        self.pole_unit = np.array(p)
-
-        # active area normal vector
-        # 1) rotate pole about y-axis; this way, 0 lat for pole = [0,
-        #    90] will be the x-axis.
-        # 2) rotate result about pole
-        v = vector_rotate(self.pole_unit, np.r_[0, 1, 0],
-                          np.radians(-(self.ll[1] + 90)))
-        self.normal = vector_rotate(v, self.pole_unit, np.radians(self.ll[0]))
-        self.normal /= np.sqrt(np.dot(self.normal, self.normal))
 
     def __str__(self):
         return 'GaussianActiveArea({}, {}, {}, {})'.format(
             self.w, self.sig, self.ll, self.pole)
 
     def scale(self, p):
-        from mskpy.util import gaussian
         if len(p) > 1:
             dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
         else:
@@ -374,7 +374,7 @@ class GaussianActiveArea(Scaler):
         th = np.degrees(np.arccos(dot))
         i = th <= (self.w / 2.0)
         scale = np.zeros(i.shape, float)
-        scale[i] = gaussian(th[i], 0, self.sig)
+        scale[i] = util.gaussian(th[i], 0, self.sig)
         return scale
 
 
