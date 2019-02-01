@@ -56,8 +56,8 @@ sim = cs.Simulation(args.files[0], observer=observer, n=0, vebose=False)
 center = np.degrees(sim.sky_coords.target.flatten())
 
 if args.pole is None:
-    r = sim.params['comet']['r']
-    v = sim.params['comet']['v']
+    r = np.array(sim.params['comet']['r'])
+    v = np.array(sim.params['comet']['v'])
     pole = xyz2lb(np.cross(-r, v))
 else:
     pole = args.pole
@@ -107,3 +107,4 @@ fits.writeto(args.o, im, overwrite=True)
 
 annotations = '\n'.join(annotations[::-1])
 print(annotations)
+print('{} deg cone full opening angle.'.format(w))
