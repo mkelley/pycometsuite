@@ -44,12 +44,16 @@ __all__ = [
 
 from abc import ABC, ABCMeta, abstractmethod
 import numpy as np
+from . import util
+
 
 class InvalidDistribution(Exception):
     pass
 
+
 class Generator(ABC):
     """Abstract base class for CometSuite particle generators."""
+
     def __iter__(self):
         return self
 
@@ -67,7 +71,8 @@ class Generator(ABC):
 
         """
         pass
-        
+
+
 class CosineAngle(Generator):
     """Polar angle variate for a solid angle distrubution proportional to `cos`.
 
@@ -108,6 +113,7 @@ class CosineAngle(Generator):
 
     __doc__ = Generator.next.__doc__
 
+
 class Delta(Generator):
     """A "random" variate pick from the delta function distribution.
 
@@ -115,7 +121,7 @@ class Delta(Generator):
     ----------
     x0 : float, optional
       The location of the delta function.
- 
+
     Returns
     -------
     x : float
@@ -142,6 +148,7 @@ class Delta(Generator):
             return np.repeat(self.x0, N)
 
     __doc__ = Generator.next.__doc__
+
 
 class Grid(Generator):
     """Variate picked from a uniform grid.
@@ -216,6 +223,7 @@ class Grid(Generator):
 
     __doc__ = Generator.next.__doc__
 
+
 class Log(Generator):
     """Random variate with the distribution dn/dlog ~ 1.
 
@@ -248,6 +256,7 @@ class Log(Generator):
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
+
 
 class Normal(Generator):
     """Normally distributed random variate.
@@ -306,6 +315,7 @@ class Normal(Generator):
 
     __doc__ = Generator.next.__doc__
 
+
 class Sequence(Generator):
     """Variate picked from a sequence.
 
@@ -350,17 +360,18 @@ class Sequence(Generator):
     def __next__(self):
         self.i += 1
         if self.i >= len(self.seq):
-            self.i = 0                
+            self.i = 0
             self.cycle -= 1
         if self.cycle <= 0:
             raise StopIteration
         return self.seq[self.i]
-    
+
     def next(self, N=1):
         x = np.array((next(self) for i in range(N)))
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
+
 
 class Uniform(Generator):
     """Uniformly distributed random variate.
@@ -396,6 +407,7 @@ class Uniform(Generator):
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
+
 
 class UniformAngle(Generator):
     """Polar angle variate for a uniform solid angle distrubution.
@@ -439,6 +451,7 @@ class UniformAngle(Generator):
 
     __doc__ = Generator.next.__doc__
 
+
 class Vej(Generator, metaclass=ABCMeta):
     """Abstract base class for ejection velocity generators.
 
@@ -447,27 +460,32 @@ class Vej(Generator, metaclass=ABCMeta):
     Parameters
     ----------
     pole : array, optional
-      The pole in Ecliptic coordinates, angular (lambda, beta) or
-      rectangular (x, y, z).  The Vernal equinox will be arbitrarily
-      defined.  Only one of `pole` or `body_basis` may be defined.
+        The pole in Ecliptic coordinates, angular (lambda, beta) in
+        degrees or rectangular (x, y, z).  The Vernal equinox will be
+        arbitrarily defined.  Only one of `pole` or `body_basis` may
+        be defined.
+
     body_basis : array, optional
-      Nx3 array of x, y, and z unit vectors defining the
-      planetocentric coordinate system, in Ecliptic rectangular
-      coordinates.  `body_basis[0]` (x) is the Vernal eqinox,
-      `body_basis[1]` (y) is the first solstice, and `body_basis[2]`
-      (z) is the pole.  Only one of `pole` or `body_basis` may be
-      defined.
+        Nx3 array of x, y, and z unit vectors defining the
+        planetocentric coordinate system, in Ecliptic rectangular
+        coordinates.  `body_basis[0]` (x) is the Vernal eqinox,
+        `body_basis[1]` (y) is the first solstice, and `body_basis[2]`
+        (z) is the pole.  Only one of `pole` or `body_basis` may be
+        defined.
+
     w : float, optional
-      Full opening angle of the emission.  If `w` is provided,
-      `theta_dist` and `phi_dist` are ignored, and `distribution` is
-      considered. [radians].
+        Full opening angle of the emission.  If `w` is provided,
+        `theta_dist` and `phi_dist` are ignored, and `distribution` is
+        considered. [radians].
+
     distribution : string
-      The kind of distribution to use when `w` is provided:
-      'uniformangle' or 'normal'.  If 'normal', then `w` is the
-      full-width at half maximum of the `theta_dist` distribution.
+        The kind of distribution to use when `w` is provided:
+        'uniformangle' or 'normal'.  If 'normal', then `w` is the
+        full-width at half maximum of the `theta_dist` distribution.
+
     theta_dist, phi_dist : Generator
-      Specific polar (`theta`) and azimuthal (`phi`) angle
-      distributions for when `w` is not provided.
+        Specific polar (`theta`) and azimuthal (`phi`) angle
+        distributions for when `w` is not provided.
 
     Attributes
     ----------
@@ -594,12 +612,13 @@ class Vej(Generator, metaclass=ABCMeta):
         else:
             x = vernal_eq if len(vernal_eq) == 3 else lb2xyz(vernal_eq)
             c = np.dot(x, z)
-            assert np.isclose(c, 0), 'Pole and vernal equinox must be perpendicular to each other, angle is {} rad'.format(np.arccos(c))
+            assert np.isclose(
+                c, 0), 'Pole and vernal equinox must be perpendicular to each other, angle is {} rad'.format(np.arccos(c))
 
         y = np.cross(z, x)
         y /= np.sqrt(np.dot(y, y))
         return np.vstack((x, y, z))
-    
+
     def next(self, init, N=1):
         """New ejection velocity direction(s) and origin point(s).
 
@@ -655,7 +674,8 @@ class Vej(Generator, metaclass=ABCMeta):
         ])
 
         return v, origin
-       
+
+
 class Isotropic(Vej):
     def __init__(self):
         Vej.__init__(self, w=2 * np.pi, distribution='UniformAngle')
@@ -675,13 +695,70 @@ class Isotropic(Vej):
 
     def __str__(self):
         return "Isotropic()"
-    
+
     __doc__ = ["Isotropic emission."]
     doc = Vej.__doc__.splitlines()
     __doc__.extend(doc[1:doc.index('    Parameters')])
     __doc__.extend(doc[doc.index('    Attributes'):])
     __doc__ = '\n'.join(__doc__)
     del doc
+
+
+class ActiveArea(Vej):
+    def __init__(self, w, ll, pole=None):
+        """Emission from a particular location.
+
+        Vectors are uniform in solid angle.
+
+        Parameters
+        ----------
+        w : float
+            Cone full opening angle. [deg]
+
+        ll : array
+            Longitude and latitude of the active area. [deg]
+
+        pole : array, optional
+            The pole in Ecliptic coordinates (lambda, beta).  The
+            Vernal equinox will be arbitrarily defined.
+
+        """
+
+        self.w = w
+        self.ll = ll
+        pole = (0, 90) if pole is None else pole
+        self._pole = pole
+
+        # active area normal vector
+        pi = np.pi
+        aa = util.spherical_rot(np.radians(pole[0]), np.radians(pole[1]),
+                                0, pi / 2,
+                                np.radians(ll[0]), np.radians(ll[1]))
+        Vej.__init__(self, pole=np.degrees(aa), w=np.radians(w),
+                     distribution='uniformangle')
+
+    def axis(self, init):
+        """The axis of symmetry is the active area center.
+
+        Parameters
+        ----------
+        init : State
+          The state of the parent object (comet) at the time of
+          ejection.
+
+        """
+        return self.body_basis[2]
+
+    def __str__(self):
+        return "ActiveArea({}, {}, pole={})".format(
+            self.w, self.ll, self._pole)
+
+    __doc__ = __doc__.splitlines()
+    doc = Vej.__doc__.splitlines()
+    __doc__.extend(doc[doc.index('    Attributes'):])
+    __doc__ = '\n'.join(__doc__)
+    del doc
+
 
 class UniformLatitude(Vej):
     def __init__(self, lrange, pole=None, body_basis=None):
@@ -736,6 +813,7 @@ class UniformLatitude(Vej):
     __doc__ = '\n'.join(__doc__)
     del doc
 
+
 class Sunward(Vej):
     def axis(self, init):
         """The axis of symmetry: the comet-Sun unit vector.
@@ -754,12 +832,12 @@ class Sunward(Vej):
         """
 
         from mskpy.util import mhat
-        
+
         if np.iterable(init):
             r = np.array(list((i.r for i in init)))
         else:
             r = init.r
-            
+
         m, hat = mhat(r)
         i = m == 0
         if np.any(i):
