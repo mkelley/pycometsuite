@@ -41,6 +41,8 @@ parser.add_argument('--observer', type=arg_array(3, float), default=None,
                     help='use this observer position; default: Earth')
 parser.add_argument('--observer-units', default='km',
                     help='units for --observer vector')
+parser.add_argument('--cs', action='store_true',
+                    help='weight results by cross section')
 args = parser.parse_args()
 
 sources = np.degrees(spherical_distribution(args.n))
@@ -64,14 +66,18 @@ else:
 
 cameras = {}
 for source in sources:
-    production = css.ActiveArea(w, source, pole)
+    production = css.ActiveArea(w, source, pole=pole)
     if args.k:
         production *= css.QRh(args.k)
     gsd = css.PSD_PowerLaw(args.a) * css.PSD_RemoveLogBias()
+    sc = production * gsd
+
+    if args.cs:
+        sc *= css.ParameterWeight('cs')
 
     camera = cs.Camera(shape=(args.s, args.s),
                        scale=np.r_[-1, 1] * args.pixel_scale,
-                       center=center, scaler=production * gsd)
+                       center=center, scaler=sc)
     cameras[str(source)] = camera
 
 for f in args.files:
