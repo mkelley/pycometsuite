@@ -27,13 +27,14 @@ parser = argparse.ArgumentParser(
 parser.add_argument('files', nargs='+', help='multiple files will be summed')
 parser.add_argument('-n', type=int, default=25,
                     help='number of sources to test')
+parser.add_argument('--cs', action='store_true',
+                    help='weight results by cross section')
 parser.add_argument('-a', type=float, default=-3.5, help='dn/da ~ a^k')
 parser.add_argument('-k', type=float, default=0, help='Q ~ rh^k')
 parser.add_argument('-s', type=int, default=256,
                     help='single image size, pixels')
 parser.add_argument('--pixel-scale', type=float, default=1,
                     help='arcsec per pixel')
-parser.add_argument('-o', default='out.fits', help='output image file name')
 parser.add_argument('--pole', type=arg_array(2, float), default=None,
                     help='ecliptic longitude, latitude (deg) for pole;'
                     ' default: use -r cross v')
@@ -41,8 +42,9 @@ parser.add_argument('--observer', type=arg_array(3, float), default=None,
                     help='use this observer position; default: Earth')
 parser.add_argument('--observer-units', default='km',
                     help='units for --observer vector')
-parser.add_argument('--cs', action='store_true',
-                    help='weight results by cross section')
+parser.add_argument('-o', default='out.fits', help='output image file name')
+parser.add_argument('--stack', action='store_true',
+                    help='save an image cube, instead of a grid')
 args = parser.parse_args()
 
 sources = np.degrees(spherical_distribution(args.n))
@@ -92,22 +94,32 @@ n_lon = max((sum(sources[:, 1] == lat) for lat in np.unique(lats)))
 grid = [np.linspace(0 - w / 2, 360 + w / 2, n_lon + 1),
         np.linspace(-90 - w / 2, 90 + w / 2, n_lat + 1)]
 
-im = np.zeros((args.s * n_lat, args.s * n_lon))
+if args.stack:
+    im = np.zeros((n_lat * n_lon, args.s, args.s))
+else:
+    im = np.zeros((args.s * n_lat, args.s * n_lon))
+
 last = sources[0, 1]
 annotations = ['']
-for source in sources:
-    if source[1] != last:
-        annotations.append('')
-        last = source[1]
+for i, source in enumerate(sources):
 
-    annotations[-1] += '{:^9} '.format('({:.0f},{:.0f})'.format(*source))
+    if args.stack:
+        annotations.append('{} ({:.0f},{:.0f})'.format(i, *source))
+    else:
+        if source[1] != last:
+            annotations.append('')
+            last = source[1]
+        annotations[-1] += '{:^9} '.format('({:.0f},{:.0f})'.format(*source))
 
     subim = cameras[str(source)].data
 
-    x = np.digitize(source[0], grid[0]) - 1
-    y = np.digitize(source[1], grid[1]) - 1
+    if args.stack:
+        im[i] = subim
+    else:
+        x = np.digitize(source[0], grid[0]) - 1
+        y = np.digitize(source[1], grid[1]) - 1
 
-    im[y * args.s:(y + 1) * args.s, x * args.s:(x + 1) * args.s] = subim
+        im[y * args.s:(y + 1) * args.s, x * args.s:(x + 1) * args.s] = subim
 
 fits.writeto(args.o, im, overwrite=True)
 
