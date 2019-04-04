@@ -18,6 +18,7 @@ ConstantFactor
 FractalPorosity
 GaussianActiveArea
 PSD_Hanner
+PSD_PowerLawLargeScaled
 PSD_PowerLaw
 PSD_RemoveLogBias
 QRh
@@ -53,6 +54,7 @@ __all__ = [
     'GaussianActiveArea',
     'ParameterWeight',
     'PSD_Hanner',
+    'PSD_PowerLawLargeScaled',
     'PSD_PowerLaw',
     'PSD_RemoveLogBias',
     'QRh',
@@ -440,6 +442,59 @@ class PSD_Hanner(PSDScaler):
     def scale(self, p):
         return (self.Np * (1 - self.a0 / p.radius)**self.M
                 * (self.a0 / p.radius)**self.N)
+
+
+class PSD_PowerLawLargeScaled(PSDScaler):
+    """Power-law particle size distribuion with enhanced large particles.
+
+    n(a) = N1 * a**N
+
+    Parameters
+    ----------
+    N : float
+        Power-law slope.
+
+    a0 : float
+        Grains with a > a0 are enhanced.
+
+    scale_factor : float
+        Scale factor for a > a0.
+
+    N1 : float, optional
+        Number of 1-micrometer-radius particles.
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, N, a0, scale_factor, Np=1):
+        self.N = N
+        self.a0 = a0
+        self.scale_factor = scale_factor
+        self.Np = Np
+
+    def __str__(self):
+        return 'PSD_PowerLawLargeScaled({}, {}, {}, Np={})'.format(
+            self.N, self.a0, self.scale_factor, self.Np)
+
+    def formula(self):
+        return (r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = dn/da \times {:.3g}$"
+                .format(self.Np, self.a0, self.scale_factor, self.N))
+
+    def scale(self, p):
+        return self.scale_a(p.radius)
+
+    def scale_a(self, a):
+        s = self.Np * a**self.N
+        i = a > self.a0
+        if np.any(i):
+            if np.size(s) == 1:
+                s *= self.scale_factor
+            else:
+                s[i] *= self.scale_factor
+        return s
 
 
 class PSD_PowerLaw(PSDScaler):
