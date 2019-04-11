@@ -485,7 +485,7 @@ class Vej(Generator, metaclass=ABCMeta):
 
     theta_dist, phi_dist : Generator
         Specific polar (`theta`) and azimuthal (`phi`) angle
-        distributions for when `w` is not provided.
+        distributions for when `w` is not provided. [radians]
 
     Attributes
     ----------
@@ -532,7 +532,8 @@ class Vej(Generator, metaclass=ABCMeta):
             if distribution.lower() == 'uniformangle':
                 self.theta_dist = UniformAngle(x0=0, x1=w / 2.0)
             elif distribution.lower() == 'normal':
-                self.theta_dist = Normal(x0=0, mu=0, sigma=w / 2.35)
+                self.theta_dist = Normal(
+                    x0=0, mu=0, sigma=w / 2.35)
             else:
                 raise InvalidDistribution("Only 'UniformAngle' and 'Normal'"
                                           " are implemented for w != None.")
@@ -597,9 +598,7 @@ class Vej(Generator, metaclass=ABCMeta):
 
         """
 
-        from mskpy.util import lb2xyz, mhat
-
-        z = pole if len(pole) == 3 else lb2xyz(pole)
+        z = pole if len(pole) == 3 else util.lb2xyz(*np.radians(pole))
         z = z / np.sqrt(np.sum(z**2))
         if vernal_eq is None:
             if np.allclose(z, np.array((0, 1.0, 0))):
@@ -610,7 +609,8 @@ class Vej(Generator, metaclass=ABCMeta):
                 x = np.cross((0, 1.0, 0), z)
                 x /= np.sqrt(np.dot(x, x))
         else:
-            x = vernal_eq if len(vernal_eq) == 3 else lb2xyz(vernal_eq)
+            x = vernal_eq if len(vernal_eq) == 3 else util.lb2xyz(
+                *np.radians(vernal_eq))
             c = np.dot(x, z)
             assert np.isclose(
                 c, 0), 'Pole and vernal equinox must be perpendicular to each other, angle is {} rad'.format(np.arccos(c))
@@ -643,9 +643,9 @@ class Vej(Generator, metaclass=ABCMeta):
         Notes
         -----
         General method
-          1) Generate a vector perpendicular to the axis of symmetry.
-          2) Rotate axis theta radians around the perpendicular vector.
-          3) Rotate the result phi radians around the axis of symmetry.
+          1) Pick polar and azimuthal angles in axis of symmetry coordinates.
+          2) Generate vector.
+          3) Rotate vector to ecliptic coordinates.
           4) Return the unit vector, and origin.
 
         """
@@ -654,11 +654,19 @@ class Vej(Generator, metaclass=ABCMeta):
 
         # choose theta and phi, define radial vector, all w.r.t. axis
         # of symmetry
-        theta = np.pi / 2 - self.theta_dist.next(N)
+
+        # theta is polar angle
+        theta = self.theta_dist.next(N)
         phi = self.phi_dist.next(N)
-        r = np.c_[np.cos(theta) * np.cos(phi),
-                  np.cos(theta) * np.sin(phi),
-                  np.sin(theta)]
+
+        # for polar angle:
+        r = np.c_[np.cos(phi) * np.sin(theta),
+                  np.sin(phi) * np.sin(theta),
+                  np.cos(theta)]
+
+        i = np.isclose(theta, 0)
+        if np.any(i):
+            r[i] = [0, 0, 1]
 
         # define axis of symmetry
         axis = self.axis(init)
@@ -666,13 +674,12 @@ class Vej(Generator, metaclass=ABCMeta):
         # rotate `r` from axis of symmetry coords to Ecliptic coords
         v = util.vector_rotate(r, [0, 0, 1], axis)
 
-        # project v onto body frame
+        # derive origin by projecting v onto body frame
         p = (self.body_basis * v[:, np.newaxis]).sum(2)
         origin = np.degrees(np.c_[
             np.arctan2(p[:, 1], p[:, 0]),
             np.arctan2(p[:, 2], np.sqrt(p[:, 0]**2 + p[:, 1]**2))
         ])
-
         return v, origin
 
 
@@ -705,7 +712,7 @@ class Isotropic(Vej):
 
 
 class ActiveArea(Vej):
-    def __init__(self, w, ll, pole=None):
+    def __init__(self, w, ll):
         """Emission from a particular location.
 
         Vectors are uniform in solid angle.
@@ -716,25 +723,14 @@ class ActiveArea(Vej):
             Cone full opening angle. [deg]
 
         ll : array
-            Longitude and latitude of the active area. [deg]
-
-        pole : array, optional
-            The pole in Ecliptic coordinates (lambda, beta).  The
-            Vernal equinox will be arbitrarily defined.
+            Ecliptic longitude and latitude of the active area. [deg]
 
         """
 
         self.w = w
         self.ll = ll
-        pole = (0, 90) if pole is None else pole
-        self._pole = pole
 
-        # active area normal vector
-        pi = np.pi
-        aa = util.spherical_rot(np.radians(pole[0]), np.radians(pole[1]),
-                                0, pi / 2,
-                                np.radians(ll[0]), np.radians(ll[1]))
-        Vej.__init__(self, pole=np.degrees(aa), w=np.radians(w),
+        Vej.__init__(self, pole=self.ll, w=np.radians(w),
                      distribution='uniformangle')
 
     def axis(self, init):
@@ -750,8 +746,8 @@ class ActiveArea(Vej):
         return self.body_basis[2]
 
     def __str__(self):
-        return "ActiveArea({}, {}, pole={})".format(
-            self.w, self.ll, self._pole)
+        return "ActiveArea({}, {})".format(
+            self.w, self.ll)
 
     __doc__ = __doc__.splitlines()
     doc = Vej.__doc__.splitlines()

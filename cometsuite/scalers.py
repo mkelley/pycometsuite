@@ -24,6 +24,7 @@ PSD_RemoveLogBias
 QRh
 QRhDouble
 ScatteredLight
+SpeedAngle
 SpeedLimit
 SpeedRadius
 SpeedRh
@@ -60,6 +61,7 @@ __all__ = [
     'QRh',
     'QRhDouble',
     'ScatteredLight',
+    'SpeedAngle',
     'SpeedLimit',
     'SpeedRadius',
     'SpeedRh',
@@ -246,6 +248,9 @@ class ActiveArea(Scaler):
 
         # active area normal vector
         pi = np.pi
+        print(
+            'WARNING: spherical rot must be fixed after final 243P sims (tag old version)')
+        # need to rotate pole in the same way that 0,pi/2 is rotated to match ll : use vector_rotate
         o = util.spherical_rot(np.radians(pole[0]), np.radians(pole[1]),
                                0, pi / 2,
                                np.radians(ll[0]), np.radians(ll[1]))
@@ -724,6 +729,53 @@ class ScatteredLight(Scaler):
         sigma = np.pi * (p.radius * 1e-9)**2  # km**2
         S = solar_flux(self.wave, unit=self.unit).value  # at 1 AU
         return Q * sigma * S / p.rh_f**2 / p.Delta**2
+
+
+class SpeedAngle(Scaler):
+    """Scale speed by angle from a vector, with optional constant.
+
+    v = scale * func(th) + const
+
+    Parameters
+    ----------
+    lam, bet : float
+       Ecliptic coordinates of the axis to which angles are measured.
+       [deg]
+
+    func : string
+        'sin' or 'cos'.
+
+    scale : float
+        Scale factor.  [km/s]
+
+    const : float, optional
+        Constant offset.  [km/s]
+
+    """
+
+    def __init__(self, lam, bet, func, scale, const=0):
+        self.lam = lam
+        self.bet = bet
+        self.r = util.lb2xyz(np.radians(lam), np.radians(bet))
+        self.func = func
+        if func == 'sin':
+            self.f = np.sin
+        elif func == 'cos':
+            self.f = np.cos
+        else:
+            raise ValueError('func must be sin or cos.')
+        self.speed_scale = scale
+        self.const = const
+
+    def __str__(self):
+        return 'SpeedAngle({}, {}, "{}", {}, const={})'.format(
+            self.lam, self.bet, self.func, self.speed_scale, self.const)
+
+    def scale(self, p):
+        dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
+        th = np.arccos(dot)
+        scale = self.speed_scale * self.f(th) + self.const
+        return scale
 
 
 class SpeedLimit(Scaler):

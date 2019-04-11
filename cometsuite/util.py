@@ -25,14 +25,26 @@ def lb2xyz(lon, lat):
                      np.sin(lat)])
 
 
+def xyz2lb(r):
+    """Cartesian to spherical coordinates (radians)."""
+    lam = np.arctan2(r[1], r[0])
+    bet = np.arctan2(r[2], np.sqrt(r[0]**2 + r[1]**2))
+    return lam, bet
+
+
 def magnitude(v):
     return np.sqrt(np.dot(v, v))
 
 
 def spherical_rot(lam0, bet0, lam1, bet1, lam, bet):
-    """
+    """Rotate coordinate by exmaple.
+
+    Rotate lam, bet in the same way that lam0, bet0 needs to be
+    rotated to match lam1, bet1.  All angles in radians.
+
     Based on the IDL routine spherical_coord_rotate.pro written by
     J.D. Smith, and distributed with CUBISM.
+
     """
 
     if (lam0 == lam1) and (bet0 == bet1):
