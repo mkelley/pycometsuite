@@ -95,7 +95,7 @@ grid = [np.linspace(0 - w / 2, 360 + w / 2, n_lon + 1),
         np.linspace(-90 - w / 2, 90 + w / 2, n_lat + 1)]
 
 if args.stack:
-    im = np.zeros((n_lat * n_lon, args.s, args.s))
+    im = np.zeros((len(sources), args.s, args.s))
 else:
     im = np.zeros((args.s * n_lat, args.s * n_lon))
 
