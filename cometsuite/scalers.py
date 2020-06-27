@@ -743,7 +743,7 @@ class SpeedAngle(Scaler):
        [deg]
 
     func : string
-        'sin' or 'cos'.
+        sin, sin2, sin4, cos, cos2, cos4
 
     scale : float
         Scale factor.  [km/s]
@@ -760,8 +760,16 @@ class SpeedAngle(Scaler):
         self.func = func
         if func == 'sin':
             self.f = np.sin
+        elif func == 'sin2':
+            self.f = lambda th: np.sin(th)**2
+        elif func == 'sin4':
+            self.f = lambda th: np.sin(th)**4
         elif func == 'cos':
             self.f = np.cos
+        elif func == 'cos2':
+            self.f = lambda th: np.cos(th)**2
+        elif func == 'cos4':
+            self.f = lambda th: np.cos(th)**4
         else:
             raise ValueError('func must be sin or cos.')
         self.speed_scale = scale
