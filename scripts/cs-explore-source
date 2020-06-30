@@ -33,6 +33,9 @@ parser.add_argument('-a', type=float, default=-3.5, help='dn/da ~ a^k')
 parser.add_argument('-k', type=float, default=0, help='Q ~ rh^k')
 parser.add_argument('-s', type=int, default=256,
                     help='single image size, pixels')
+parser.add_argument('-w', type=float, default=None,
+                    help='use this cone full-opening angle; '
+                    'the default corresponds to an active area of 4π/N.')
 parser.add_argument('--pixel-scale', type=float, default=1,
                     help='arcsec per pixel')
 parser.add_argument('--pole', type=arg_array(2, float), default=None,
@@ -48,7 +51,11 @@ parser.add_argument('--stack', action='store_true',
 args = parser.parse_args()
 
 sources = np.degrees(spherical_distribution(args.n))
-w = 4 * np.degrees(np.sqrt(1 / args.n))
+spacing = 4 * np.degrees(np.sqrt(1 / args.n))
+if args.w is None:
+    w = spacing
+else:
+    w = args.w
 
 if args.observer is None:
     observer = Earth
@@ -91,8 +98,8 @@ lats = np.sort(np.unique(sources[:, 1]))
 n_lat = len(lats)
 n_lon = max((sum(sources[:, 1] == lat) for lat in np.unique(lats)))
 
-grid = [np.linspace(0 - w / 2, 360 + w / 2, n_lon + 1),
-        np.linspace(-90 - w / 2, 90 + w / 2, n_lat + 1)]
+grid = [np.linspace(0 - spacing / 2, 360 + spacing / 2, n_lon + 1),
+        np.linspace(-90 - spacing / 2, 90 + spacing / 2, n_lat + 1)]
 
 if args.stack:
     im = np.zeros((len(sources), args.s, args.s))
@@ -125,4 +132,5 @@ fits.writeto(args.o, im, overwrite=True)
 
 annotations = '\n'.join(annotations[::-1])
 print(annotations)
+print('{} deg spacing.'.format(spacing))
 print('{} deg cone full opening angle.'.format(w))
