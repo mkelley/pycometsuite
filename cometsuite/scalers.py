@@ -29,6 +29,7 @@ SpeedLimit
 SpeedRadius
 SpeedRh
 SunCone
+SunSpeedAngle
 ThermalEmission
 UnityScaler
 
@@ -66,6 +67,7 @@ __all__ = [
     'SpeedRadius',
     'SpeedRh',
     'SunCone',
+    'SunSpeedAngle',
     'ThermalEmission',
     'UnityScaler',
     'flux_scaler'
@@ -780,7 +782,10 @@ class SpeedAngle(Scaler):
             self.lam, self.bet, self.func, self.speed_scale, self.const)
 
     def scale(self, p):
-        dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
+        if len(p) > 1:
+            dot = np.sum(self.r * p.v_ej, 1) / util.magnitude(p.v_ej)
+        else:
+            dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
         th = np.arccos(dot)
         scale = self.speed_scale * self.f(th) + self.const
         return scale
@@ -927,6 +932,36 @@ class SunCone(Scaler):
             dot = np.sum(-p.r_i * p.v_ej) / p.d_i / p.s_ej
         th = np.degrees(np.arccos(dot))
         return (th <= (self.w / 2.0)).astype(int)
+
+
+class SunSpeedAngle(SpeedAngle):
+    """Scale speed by angle from Sun, with optional constant.
+
+    v = scale * func(th) + const
+
+    Parameters
+    ----------
+    func : string
+        sin, sin2, sin4, cos, cos2, cos4
+
+    scale : float
+        Scale factor.  [km/s]
+
+    const : float, optional
+        Constant offset.  [km/s]
+
+    """
+
+    def __init__(self, func, scale, const=0):
+        super().__init__(0, 0, func, scale, const=const)
+
+    def __str__(self):
+        return 'SunSpeedAngle("{}", {}, const={})'.format(
+            self.func, self.speed_scale, self.const)
+
+    def scale(self, p):
+        self.r = (-p.r_i.T / util.magnitude(p.r_i)).T
+        return super().scale(p)
 
 
 class ThermalEmission(Scaler):

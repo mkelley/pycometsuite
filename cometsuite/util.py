@@ -33,7 +33,11 @@ def xyz2lb(r):
 
 
 def magnitude(v):
-    return np.sqrt(np.dot(v, v))
+    if v.ndim == 1:
+        m = np.sqrt(np.dot(v, v))
+    else:
+        m = np.sqrt(np.sum(v * v, 1))
+    return m
 
 
 def spherical_rot(lam0, bet0, lam1, bet1, lam, bet):
