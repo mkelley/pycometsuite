@@ -41,6 +41,8 @@ parser.add_argument('--pixel-scale', type=float, default=1,
 parser.add_argument('--pole', type=arg_array(2, float), default=None,
                     help='ecliptic longitude, latitude (deg) for pole;'
                     ' default: use -r cross v')
+parser.add_argument('--angle', type=arg_array(3, str), default=None,
+                    help='production scaled by function of angle: func,scale,offset')
 parser.add_argument('--observer', type=arg_array(3, float), default=None,
                     help='use this observer position; default: Earth')
 parser.add_argument('--observer-units', default='km',
@@ -83,6 +85,10 @@ for source in sources:
 
     if args.cs:
         sc *= css.ParameterWeight('cs')
+
+    if args.angle is not None:
+        sc *= css.Angle(source[0], source[1], args.angle[0],
+                        float(args.angle[1]), float(args.angle[2]))
 
     camera = cs.Camera(shape=(args.s, args.s),
                        scale=np.r_[-1, 1] * args.pixel_scale,
@@ -128,7 +134,24 @@ for i, source in enumerate(sources):
 
         im[y * args.s:(y + 1) * args.s, x * args.s:(x + 1) * args.s] = subim
 
-fits.writeto(args.o, im, overwrite=True)
+h = fits.Header()
+h['nfiles'] = len(args.files)
+for i in range(len(args.files)):
+    h[f'file{i}'] = args.files[i]
+h['nsources'] = args.n
+h['crosssec'] = args.cs, 'weight results by cross section'
+h['a'] = args.a, 'GSD power-law slope'
+h['k'] = args.k, 'production rate slope with rh'
+h['size'] = args.s, 'image size'
+h['w'] = w, 'cone full-opening angle'
+h['angle'] = '' if args.angle is None else ','.join(args.angle)
+h['scale'] = args.pixel_scale, 'arcsec/pix'
+h['lambda'] = pole[0], 'pole heliocentric ecliptic longitude, deg'
+h['beta'] = pole[1], 'pole heliocentric ecliptic latitude, deg'
+h['observer'] = str(args.observer)
+h['obsunits'] = str(args.observer_units), 'units on observer vector'
+h['stack'] = args.stack, 'image is a stack, otherwise a grid'
+fits.writeto(args.o, im, h, overwrite=True)
 
 annotations = '\n'.join(annotations[::-1])
 print(annotations)
