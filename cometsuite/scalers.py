@@ -14,6 +14,7 @@ ProductionRateScaler
 PSDScaler
 
 ActiveArea
+Angle
 ConstantFactor
 FractalPorosity
 GaussianActiveArea
@@ -24,7 +25,6 @@ PSD_RemoveLogBias
 QRh
 QRhDouble
 ScatteredLight
-SpeedAngle
 SpeedLimit
 SpeedRadius
 SpeedRh
@@ -51,6 +51,7 @@ __all__ = [
     'Scaler',
     'CompositeScaler',
     'ActiveArea',
+    'Angle',
     'ConstantFactor',
     'FractalPorosity',
     'GaussianActiveArea',
@@ -62,7 +63,6 @@ __all__ = [
     'QRh',
     'QRhDouble',
     'ScatteredLight',
-    'SpeedAngle',
     'SpeedLimit',
     'SpeedRadius',
     'SpeedRh',
@@ -231,17 +231,30 @@ class ActiveArea(Scaler):
     pole : array
         Ecliptic longitude and latitude of the pole. [deg]
 
+    func : string
+        Scale varies with angle following: sin, sin2, cos, cos2
 
     Methods
     -------
-    scale : Scale factor - 1 inside cone, 0 outside.
+    scale : Scale factor - 0 to 1 inside cone, 0 outside.
 
     """
 
-    def __init__(self, w, ll, pole):
+    def __init__(self, w, ll, pole, func=None):
         self.w = w
         self.ll = list(ll)
         self.pole = list(pole)
+        self.func = func
+        if func == 'sin':
+            self.f = np.sin
+        elif func == 'sin2':
+            self.f = lambda th: np.sin(th)**2
+        elif func == 'cos':
+            self.f = np.cos
+        elif func == 'cos2':
+            self.f = lambda th: np.cos(th)**2
+        else:
+            self.f = lambda th: np.ones_like(th, dtype=int)
 
         # pole and origin unit vector
         a = np.radians(self.pole)
@@ -259,15 +272,113 @@ class ActiveArea(Scaler):
         self.normal = util.lb2xyz(*o)
 
     def __str__(self):
-        return 'ActiveArea({}, {}, {})'.format(self.w, self.ll, self.pole)
+        return 'ActiveArea({}, {}, {}, func="{}")'.format(
+            self.w, self.ll, self.pole, self.func)
 
     def scale(self, p):
         if len(p) > 1:
-            dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
+            s_ej = np.sqrt(np.sum(p.v_ej**2, 1))
+            dot = np.sum(self.normal * p.v_ej, 1) / s_ej
         else:
-            dot = np.sum(self.normal * p.v_ej) / p.s_ej
+            s_ej = np.sqrt(np.sum(p.v_ej**2))
+            dot = np.sum(self.normal * p.v_ej) / s_ej
         th = np.degrees(np.arccos(dot))
-        return (th <= (self.w / 2.0)).astype(int)
+        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
+
+
+class Angle(Scaler):
+    """Scale by angle from a vector, with optional constant.
+
+    v = scale * func(th) + const
+
+    Parameters
+    ----------
+    lam, bet : float
+       Ecliptic coordinates of the axis to which angles are measured.
+       [deg]
+
+    func : string
+        sin, sin2, sin4, cos, cos2, cos4, sin(th/2), etc.,
+        sin(th<90), sin2(th<90)
+
+    scale : float
+        Scale factor.  [km/s]
+
+    const : float, optional
+        Constant offset.  [km/s]
+
+    """
+
+    def __init__(self, lam, bet, func, scale, const=0):
+        self.lam = lam
+        self.bet = bet
+        self.r = util.lb2xyz(np.radians(lam), np.radians(bet))
+        self.func = func
+        if func == 'sin':
+            self.f = np.sin
+        elif func == 'sin2':
+            self.f = lambda th: np.sin(th)**2
+        elif func == 'sin4':
+            self.f = lambda th: np.sin(th)**4
+        elif func == 'sin(th/2)':
+            self.f = lambda th: np.sin(th/2)
+        elif func == 'sin2(th/2)':
+            self.f = lambda th: np.sin(th/2)**2
+        elif func == 'sin4(th/2)':
+            self.f = lambda th: np.sin(th/2)**4
+        elif func == 'sin(th<90)':
+            self.f = self.sin_th_lt_90
+        elif func == 'sin2(th<90)':
+            self.f = self.sin2_th_lt_90
+        elif func == 'cos':
+            self.f = np.cos
+        elif func == 'cos2':
+            self.f = lambda th: np.cos(th)**2
+        elif func == 'cos4':
+            self.f = lambda th: np.cos(th)**4
+        elif func == 'cos(th/2)':
+            self.f = lambda th: np.cos(th/2)
+        elif func == 'cos2(th/2)':
+            self.f = lambda th: np.cos(th/2)**2
+        elif func == 'cos4(th/2)':
+            self.f = lambda th: np.cos(th/2)**4
+        else:
+            raise ValueError('func must be sin or cos.')
+        self.c1 = scale
+        self.c0 = const
+
+    def __str__(self):
+        return 'Angle({}, {}, "{}", {}, const={})'.format(
+            self.lam, self.bet, self.func, self.c1, self.c0)
+
+    @staticmethod
+    def sin_th_lt_90(th):
+        """sin(th) for th < 90 deg, else 1.0"""
+        f = np.sin(th)
+        f[th > (np.pi / 2)] = 1.0
+        return f
+
+    @staticmethod
+    def sin2_th_lt_90(th):
+        """sin2(th) for th < 90 deg, else 1.0"""
+        f = np.sin(th)**2
+        f[th > (np.pi / 2)] = 1.0
+        return f
+
+    def scale(self, p):
+        if len(p) > 1:
+            dot = np.sum(self.r * p.v_ej, 1) / util.magnitude(p.v_ej)
+        else:
+            dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
+        th = np.arccos(dot)
+        scale = self.c1 * self.f(th) + self.c0
+        return scale
+
+
+class SpeedAngle(Angle):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise DeprecationWarning('SpeedAngle depricated; use Angle')
 
 
 class ConstantFactor(Scaler):
@@ -360,10 +471,13 @@ class GaussianActiveArea(ActiveArea):
             self.w, self.sig, self.ll, self.pole)
 
     def scale(self, p):
+
         if len(p) > 1:
-            dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
+            s_ej = np.sqrt(np.sum(np.v_ej**2, 1))
+            dot = np.sum(self.normal * p.v_ej, 1) / s_ej
         else:
-            dot = np.sum(self.normal * p.v_ej) / p.s_ej
+            s_ej = np.sqrt(np.sum(np.v_ej**2))
+            dot = np.sum(self.normal * p.v_ej) / s_ej
         th = np.degrees(np.arccos(dot))
         i = th <= (self.w / 2.0)
         scale = np.zeros(i.shape, float)
@@ -731,64 +845,6 @@ class ScatteredLight(Scaler):
         sigma = np.pi * (p.radius * 1e-9)**2  # km**2
         S = solar_flux(self.wave, unit=self.unit).value  # at 1 AU
         return Q * sigma * S / p.rh_f**2 / p.Delta**2
-
-
-class SpeedAngle(Scaler):
-    """Scale speed by angle from a vector, with optional constant.
-
-    v = scale * func(th) + const
-
-    Parameters
-    ----------
-    lam, bet : float
-       Ecliptic coordinates of the axis to which angles are measured.
-       [deg]
-
-    func : string
-        sin, sin2, sin4, cos, cos2, cos4
-
-    scale : float
-        Scale factor.  [km/s]
-
-    const : float, optional
-        Constant offset.  [km/s]
-
-    """
-
-    def __init__(self, lam, bet, func, scale, const=0):
-        self.lam = lam
-        self.bet = bet
-        self.r = util.lb2xyz(np.radians(lam), np.radians(bet))
-        self.func = func
-        if func == 'sin':
-            self.f = np.sin
-        elif func == 'sin2':
-            self.f = lambda th: np.sin(th)**2
-        elif func == 'sin4':
-            self.f = lambda th: np.sin(th)**4
-        elif func == 'cos':
-            self.f = np.cos
-        elif func == 'cos2':
-            self.f = lambda th: np.cos(th)**2
-        elif func == 'cos4':
-            self.f = lambda th: np.cos(th)**4
-        else:
-            raise ValueError('func must be sin or cos.')
-        self.speed_scale = scale
-        self.const = const
-
-    def __str__(self):
-        return 'SpeedAngle({}, {}, "{}", {}, const={})'.format(
-            self.lam, self.bet, self.func, self.speed_scale, self.const)
-
-    def scale(self, p):
-        if len(p) > 1:
-            dot = np.sum(self.r * p.v_ej, 1) / util.magnitude(p.v_ej)
-        else:
-            dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
-        th = np.arccos(dot)
-        scale = self.speed_scale * self.f(th) + self.const
-        return scale
 
 
 class SpeedLimit(Scaler):
