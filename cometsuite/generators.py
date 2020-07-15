@@ -218,7 +218,7 @@ class Grid(Generator):
         return self.seq[self.i]
 
     def next(self, N=1):
-        x = np.array((next(self) for i in range(N)))
+        x = np.array([next(self) for i in range(N)])
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
@@ -310,7 +310,7 @@ class Normal(Generator):
         return u
 
     def next(self, N=1):
-        x = np.array((next(self) for i in range(N)))
+        x = np.array([next(self) for i in range(N)])
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
@@ -367,7 +367,7 @@ class Sequence(Generator):
         return self.seq[self.i]
 
     def next(self, N=1):
-        x = np.array((next(self) for i in range(N)))
+        x = np.array([next(self) for i in range(N)])
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
