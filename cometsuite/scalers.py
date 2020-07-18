@@ -219,6 +219,57 @@ class PSDScaler(Scaler):
 class ActiveArea(Scaler):
     """Emission from an active area.
 
+    Parameters
+    ----------
+    w : float
+        Cone full opening angle. [deg]
+
+    ll : array
+        Ecliptic longitude and latitude of the pole. [deg]
+
+    func : string
+        Scale varies with angle following: sin, sin2, cos, cos2
+
+    Methods
+    -------
+    scale : Scale factor - 0 to 1 inside cone, 0 outside.
+
+    """
+
+    def __init__(self, w, ll, func=None):
+        self.w = w
+        self.ll = list(ll)
+        self.func = func
+        if func == 'sin':
+            self.f = np.sin
+        elif func == 'sin2':
+            self.f = lambda th: np.sin(th)**2
+        elif func == 'cos':
+            self.f = np.cos
+        elif func == 'cos2':
+            self.f = lambda th: np.cos(th)**2
+        else:
+            self.f = lambda th: 1
+
+        # active area normal vector
+        a = np.radians(self.ll)
+        self.normal = np.array(
+            spherical_to_cartesian(1.0, a[1], a[0]))
+
+    def __str__(self):
+        return 'ActiveArea({}, {}, func="{}")'.format(
+            self.w, self.ll, self.func)
+
+    def scale(self, p):
+        th = util.angle_between(self.normal, p.v_ej)
+        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
+
+
+class ActiveAreaOld(Scaler):
+    """Emission from an active area.
+
+    Broken, may be more than just spherical_rot.
+
 
     Parameters
     ----------
@@ -254,7 +305,7 @@ class ActiveArea(Scaler):
         elif func == 'cos2':
             self.f = lambda th: np.cos(th)**2
         else:
-            self.f = lambda th: np.ones_like(th, dtype=int)
+            self.f = lambda th: 1
 
         # pole and origin unit vector
         a = np.radians(self.pole)
@@ -272,16 +323,14 @@ class ActiveArea(Scaler):
         self.normal = util.lb2xyz(*o)
 
     def __str__(self):
-        return 'ActiveArea({}, {}, {}, func="{}")'.format(
+        return 'ActiveAreaOld({}, {}, {}, func="{}")'.format(
             self.w, self.ll, self.pole, self.func)
 
     def scale(self, p):
         if len(p) > 1:
-            s_ej = np.sqrt(np.sum(p.v_ej**2, 1))
-            dot = np.sum(self.normal * p.v_ej, 1) / s_ej
+            dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
         else:
-            s_ej = np.sqrt(np.sum(p.v_ej**2))
-            dot = np.sum(self.normal * p.v_ej) / s_ej
+            dot = np.sum(self.normal * p.v_ej) / p.s_ej
         th = np.degrees(np.arccos(dot))
         return (th <= (self.w / 2.0)).astype(int) * self.f(th)
 
@@ -312,7 +361,7 @@ class Angle(Scaler):
     def __init__(self, lam, bet, func, scale, const=0):
         self.lam = lam
         self.bet = bet
-        self.r = util.lb2xyz(np.radians(lam), np.radians(bet))
+        self.normal = util.lb2xyz(np.radians(lam), np.radians(bet))
         self.func = func
         if func == 'sin':
             self.f = np.sin
@@ -366,12 +415,8 @@ class Angle(Scaler):
         return f
 
     def scale(self, p):
-        if len(p) > 1:
-            dot = np.sum(self.r * p.v_ej, 1) / util.magnitude(p.v_ej)
-        else:
-            dot = np.sum(self.r * p.v_ej) / util.magnitude(p.v_ej)
-        th = np.arccos(dot)
-        scale = self.c1 * self.f(th) + self.c0
+        th = util.angle_between(self.normal, p.v_ej)
+        scale = self.c1 * self.f(np.radians(th)) + self.c0
         return scale
 
 
@@ -471,14 +516,7 @@ class GaussianActiveArea(ActiveArea):
             self.w, self.sig, self.ll, self.pole)
 
     def scale(self, p):
-
-        if len(p) > 1:
-            s_ej = np.sqrt(np.sum(np.v_ej**2, 1))
-            dot = np.sum(self.normal * p.v_ej, 1) / s_ej
-        else:
-            s_ej = np.sqrt(np.sum(np.v_ej**2))
-            dot = np.sum(self.normal * p.v_ej) / s_ej
-        th = np.degrees(np.arccos(dot))
+        th = util.angle_between(self.normal, p.v_ej)
         i = th <= (self.w / 2.0)
         scale = np.zeros(i.shape, float)
         scale[i] = util.gaussian(th[i], 0, self.sig)
@@ -982,11 +1020,7 @@ class SunCone(Scaler):
         return 'SunCone({})'.format(self.w)
 
     def scale(self, p):
-        if len(p) > 1:
-            dot = np.sum(-p.r_i * p.v_ej, 1) / p.d_i / p.s_ej
-        else:
-            dot = np.sum(-p.r_i * p.v_ej) / p.d_i / p.s_ej
-        th = np.degrees(np.arccos(dot))
+        th = util.angle_between(-p.r_i, p.v_ej)
         return (th <= (self.w / 2.0)).astype(int)
 
 

@@ -187,3 +187,29 @@ def gaussian(x, mu, sigma):
     """
     return (np.exp(-(x - mu)**2 / 2.0 / sigma**2) /
             np.sqrt(2.0 * np.pi) / sigma)
+
+
+def angle_between(v1, v2):
+    """Return the angle between two vectors.
+
+    Parameters
+    ----------
+    v1, v2 : ndarray
+        Vector of shape (3,) or (n,3).
+
+    Returns
+    -------
+    th : float or ndarray
+        Angle in degrees.
+
+    """
+
+    s1 = np.sqrt(np.sum(v1**2, -1))
+    s2 = np.sqrt(np.sum(v2**2, -1))
+    dot = np.sum(v1 * v2, -1) / (s1 * s2)
+    if dot.ndim == 1:
+        dot[dot > 1] = 1
+    else:
+        dot = 1 if dot > 1 else dot
+    th = np.degrees(np.arccos(dot))
+    return np.squeeze(th)

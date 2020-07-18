@@ -23,7 +23,7 @@ def arg_array(n, dtype):
 
 
 parser = argparse.ArgumentParser(
-    epilog='--pole and --observer arguments are comma-separated')
+    epilog='--observer components are comma-separated')
 parser.add_argument('files', nargs='+', help='multiple files will be summed')
 parser.add_argument('-n', type=int, default=25,
                     help='number of sources to test')
@@ -38,9 +38,6 @@ parser.add_argument('-w', type=float, default=None,
                     'the default corresponds to an active area of 4π/N.')
 parser.add_argument('--pixel-scale', type=float, default=1,
                     help='arcsec per pixel')
-parser.add_argument('--pole', type=arg_array(2, float), default=None,
-                    help='ecliptic longitude, latitude (deg) for pole;'
-                    ' default: use -r cross v')
 parser.add_argument('--angle', type=arg_array(3, str), default=None,
                     help='production scaled by function of angle: func,scale,offset')
 parser.add_argument('--observer', type=arg_array(3, float), default=None,
@@ -68,16 +65,9 @@ else:
 sim = cs.Simulation(args.files[0], observer=observer, n=0, vebose=False)
 center = np.degrees(sim.sky_coords.target.flatten())
 
-if args.pole is None:
-    r = np.array(sim.params['comet']['r'])
-    v = np.array(sim.params['comet']['v'])
-    pole = xyz2lb(np.cross(-r, v))
-else:
-    pole = args.pole
-
 cameras = {}
 for source in sources:
-    production = css.ActiveArea(w, source, pole=pole)
+    production = css.ActiveArea(w, source)
     if args.k:
         production *= css.QRh(args.k)
     gsd = css.PSD_PowerLaw(args.a) * css.PSD_RemoveLogBias()
@@ -146,8 +136,6 @@ h['size'] = args.s, 'image size'
 h['w'] = w, 'cone full-opening angle'
 h['angle'] = '' if args.angle is None else ','.join(args.angle)
 h['scale'] = args.pixel_scale, 'arcsec/pix'
-h['lambda'] = pole[0], 'pole heliocentric ecliptic longitude, deg'
-h['beta'] = pole[1], 'pole heliocentric ecliptic latitude, deg'
 h['observer'] = str(args.observer)
 h['obsunits'] = str(args.observer_units), 'units on observer vector'
 h['stack'] = args.stack, 'image is a stack, otherwise a grid'
