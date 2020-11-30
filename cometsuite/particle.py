@@ -390,7 +390,16 @@ class Composition(object):
           Beta.
 
         """
-        return self.Qpr(radius) * 0.57 / radius / self.rho0 / (1 - porosity)
+
+        numerator = self.Qpr(radius) * 0.57
+        denominator = np.array(radius) * (1 - np.array(porosity)) * self.rho0
+        if len(denominator) > 1:
+            i = denominator <= 0
+            numerator[i] = 0
+            denominator[i] = 1
+        elif denominator == 0:
+            return 0
+        return numerator / denominator
 
     def radius(self, beta, porosity):
         """Particle radius.

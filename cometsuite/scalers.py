@@ -21,6 +21,7 @@ GaussianActiveArea
 PSD_Hanner
 PSD_PowerLawLargeScaled
 PSD_PowerLaw
+PSD_BrokenPowerLaw
 PSD_RemoveLogBias
 QRh
 QRhDouble
@@ -57,6 +58,7 @@ __all__ = [
     'GaussianActiveArea',
     'ParameterWeight',
     'PSD_Hanner',
+    'PSD_BrokenPowerLaw',
     'PSD_PowerLawLargeScaled',
     'PSD_PowerLaw',
     'PSD_RemoveLogBias',
@@ -603,6 +605,67 @@ class PSD_Hanner(PSDScaler):
                 * (self.a0 / p.radius)**self.N)
 
 
+class PSD_BrokenPowerLaw(PSDScaler):
+    """Broken power-law particle size distribution.
+
+    n(a) = N1 * a**N for a < a0
+         = N1 * a0**(N - M) * a**M for a > a0
+
+    Parameters
+    ----------
+    N : float
+        Power-law slope.
+
+    a0 : float
+        Break point.
+
+    M : float
+        Large particle power-law slope.
+
+    N1 : float, optional
+        Number of 1-micrometer-radius particles.
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, N, a0, M, N1=1):
+        self.N = N
+        self.a0 = a0
+        self.M = M
+        self.N1 = N1
+        self._small_psd = PSD_PowerLaw(N, N1)
+        self._large_psd = PSD_PowerLaw(M, N1 * a0**(N - M))
+
+    def __str__(self):
+        return 'PSD_BrokenPowerLaw({}, {}, {}, N1={})'.format(
+            self.N, self.a0, self.M, self.N1)
+
+    def formula(self):
+        return (r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = {:.3g}\times\,a^{{{:.1f}}}$"
+                .format(self.N1, self.N, self.a0, self._large_psd.N1, self.M))
+
+    def scale(self, p):
+        return self.scale_a(p.radius)
+
+    def scale_a(self, a):
+        s = np.ones_like(a)
+        small = a < self.a0
+        if np.size(s) == 1:
+            if small:
+                s *= self._small_psd.scale_a(a)
+            else:
+                s *= self._large_psd.scale_a(a)
+        else:
+            if np.any(small):
+                s[small] = self._small_psd.scale_a(a[small])
+            if np.any(~small):
+                s[~small] *= self._large_psd.scale_a(a[~small])
+        return s
+
+
 class PSD_PowerLawLargeScaled(PSDScaler):
     """Power-law particle size distribuion with enhanced large particles.
 
@@ -628,25 +691,25 @@ class PSD_PowerLawLargeScaled(PSDScaler):
 
     """
 
-    def __init__(self, N, a0, scale_factor, Np=1):
+    def __init__(self, N, a0, scale_factor, N1=1):
         self.N = N
         self.a0 = a0
         self.scale_factor = scale_factor
-        self.Np = Np
+        self.N1 = N1
 
     def __str__(self):
-        return 'PSD_PowerLawLargeScaled({}, {}, {}, Np={})'.format(
-            self.N, self.a0, self.scale_factor, self.Np)
+        return 'PSD_PowerLawLargeScaled({}, {}, {}, N1={})'.format(
+            self.N, self.a0, self.scale_factor, self.N1)
 
     def formula(self):
         return (r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = dn/da \times {:.3g}$"
-                .format(self.Np, self.a0, self.scale_factor, self.N))
+                .format(self.N1, self.a0, self.scale_factor, self.N))
 
     def scale(self, p):
         return self.scale_a(p.radius)
 
     def scale_a(self, a):
-        s = self.Np * a**self.N
+        s = self.N1 * a**self.N
         i = a > self.a0
         if np.any(i):
             if np.size(s) == 1:
@@ -674,22 +737,22 @@ class PSD_PowerLaw(PSDScaler):
 
     """
 
-    def __init__(self, N, Np=1):
+    def __init__(self, N, N1=1):
         self.N = N
-        self.Np = Np
+        self.N1 = N1
 
     def __str__(self):
-        return 'PSD_PowerLaw({}, Np={})'.format(self.N, self.Np)
+        return 'PSD_PowerLaw({}, N1={})'.format(self.N, self.N1)
 
     def formula(self):
         return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$".format(
-            self.Np, self.N)
+            self.N1, self.N)
 
     def scale(self, p):
         return self.scale_a(p.radius)
 
     def scale_a(self, a):
-        return self.Np * a**self.N
+        return self.N1 * a**self.N
 
 
 class PSD_RemoveLogBias(PSDScaler):
