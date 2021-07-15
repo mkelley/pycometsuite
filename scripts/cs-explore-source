@@ -3,24 +3,11 @@ import argparse
 import numpy as np
 from astropy.io import fits
 import astropy.units as u
-from mskpy import spherical_distribution, xyz2lb, Earth, FixedState
+from mskpy import spherical_distribution, Earth, FixedState
 import cometsuite as cs
 import cometsuite.scalers as css
 import cometsuite.generators as csg
-
-
-def arg_array(n, dtype):
-    if n is None:
-        def aa(x):
-            return np.array(x.split(','), dtype)
-    else:
-        def aa(x):
-            xx = x.split(',')
-            if len(xx) != n:
-                raise ValueError('expecting {} elements'.format(n))
-            return np.array(xx, dtype)
-    return aa
-
+from cometsuite.util import arg_array
 
 parser = argparse.ArgumentParser(
     epilog='--observer components are comma-separated')

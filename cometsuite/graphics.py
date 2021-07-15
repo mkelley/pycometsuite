@@ -1,8 +1,16 @@
 import numpy as np
+from scipy.interpolate import splrep, splev
+import matplotlib.pyplot as mpl
+
+from mskpy.ephem import Earth
+from mskpy.util import nearest, timesten
+
 from .simulation import Simulation
+from .xyzfile import XYZFile
+
 
 def synplot(sim, rlim=None, synchrone=False,
-            camera=None, offset=[0,0], observer=None,
+            camera=None, offset=[0, 0], observer=None,
             betalist=None, agelist=None, labels=None, tmark=None,
             tanno=False, interp=False, color=True,
             plot3d=False, ax=None, silent=False, **kwargs):
@@ -66,7 +74,7 @@ def synplot(sim, rlim=None, synchrone=False,
 
     from numpy import pi
     import matplotlib.pyplot as plt
-    
+
     plt.clf()
     ax = plt.subplot(polar=True, theta_offset=pi/2)
     cs.synplot('syn.xyz')
@@ -77,14 +85,6 @@ def synplot(sim, rlim=None, synchrone=False,
     plt.draw()
 
     """
-
-    from scipy.interpolate import splrep, splev
-    import matplotlib.pyplot as mpl
-    from mskpy.ephem import Earth
-    from mskpy.util import nearest
-    from .simulation import Simulation
-    from .xyzfile import XYZFile
-
     if observer is None:
         observer = Earth
 
@@ -106,12 +106,12 @@ def synplot(sim, rlim=None, synchrone=False,
             # syndynes
             if betalist is None:
                 betalist = np.unique(sim.beta)
+                betalist.sort()
             else:
                 betalist = np.array(betalist)
-            betalist.sort()
 
             if labels is None:
-                labels = [str(b) for b in betalist]
+                labels = [timesten(x, 3) for x in betalist]
 
             for i in range(len(betalist)):
                 # take each beta to plot, sort by age
@@ -154,12 +154,14 @@ def synplot(sim, rlim=None, synchrone=False,
 
     return lines
 
+
 def xyzplot3d(xyzfile):
     from enthought.mayavi import mlab
     r = xyzread(xyzfile, datalist=('r_f',))['r_f']
     r = r.T
     mlab.points3d(r[0], r[1], r[2], mode='point', colormap='hot')
     mlab.show()
+
 
 def xyzplotvolume(xyzfile):
     from enthought.mayavi import mlab

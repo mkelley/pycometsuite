@@ -119,22 +119,20 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     """
 
     import cometsuite as cs
-    from mskpy import getspiceobj, KeplerState, Earth, timesten
+    from mskpy import getspiceobj, KeplerState, Earth
     import matplotlib.pyplot as plt
 
     if beta is None:
         beta = np.logspace(-3, 0, 7)
     if observer is None:
         observer = Earth
-    if 'labels' not in kwargs:
-        kwargs['labels'] = [timesten(x, 3) for x in beta]
 
     target = KeplerState(getspiceobj(obj), date)
-    pgen = cs.Coma(target, target.jd, composition=cs.Geometric())
-    cs.syndynes(pgen, beta=beta, ndays=ndays, steps=steps)
-
     if integrator is None:
         integrator = cs.Kepler()
+
+    pgen = cs.Coma(target, target.jd, composition=cs.Geometric())
+    cs.syndynes(pgen, beta=beta, ndays=ndays, steps=steps)
 
     sim = cs.run(pgen, integrator)
     sim.observer = observer

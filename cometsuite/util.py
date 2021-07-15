@@ -213,3 +213,23 @@ def angle_between(v1, v2):
         dot = 1 if dot > 1 else dot
     th = np.degrees(np.arccos(dot))
     return np.squeeze(th)
+
+
+def arg_array(n, dtype):
+    """Generate function to string to an array of given dtype.
+
+    Intended for use with argparse.
+
+    n is number of elements expect or ``None``.
+
+    """
+    if n is None:
+        def aa(x):
+            return np.array(x.split(','), dtype)
+    else:
+        def aa(x):
+            xx = x.split(',')
+            if len(xx) != n:
+                raise ValueError('expecting {} elements'.format(n))
+            return np.array(xx, dtype)
+    return aa
