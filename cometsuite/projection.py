@@ -1,5 +1,6 @@
 import numpy as np
 
+
 class Projection(object):
     """Describes a set of positions projected onto the Celestial Sphere.
 

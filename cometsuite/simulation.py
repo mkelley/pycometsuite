@@ -4,9 +4,11 @@ import astropy.units as u
 
 __all__ = ['Simulation']
 
+
 class NoObserver(Exception):
     """The observer is not defined."""
     pass
+
 
 def particle_property(k):
     def getter(self):
@@ -14,9 +16,11 @@ def particle_property(k):
             return self.particles[k]
         else:
             return None
+
     def setter(self, v):
         self.particles[k] = v
     return property(getter, setter)
+
 
 class Simulation(object):
     """A set of simulated particles and RunDynamics parameters.
@@ -25,44 +29,61 @@ class Simulation(object):
     Simulation(sim, [observer=])
     Simulation(**keywords)
 
+
     Parameters
     ----------
     filename : string
-      An xyz file name from which to read particles.
+        An xyz file name from which to read particles.
+
     n : int, optional
-      Limit the number of particles read from ``filename`` to ``n``.
+        Limit the number of particles read from ``filename`` to ``n``.
+
     sim : Simulation
-      A simulation to copy.
+        A simulation to copy.
+
     observer : SolarSysObject
-      An observer used to project particles onto the Celestial Sphere.
+        An observer used to project particles onto the Celestial Sphere.
+
+    camera : Camera
+        Project the particles onto this camera's array.
 
     version : string, optional
-      When reading from a file, assume this version of XYZFile.
+        When reading from a file, assume this version of XYZFile.
+
     allocate : bool, optional
-      When intializing an empty simulation, set to `False` to prevent
-      the `particles` record array from being allocated.
+        When intializing an empty simulation, set to `False` to prevent
+        the `particles` record array from being allocated.
+
     verbose : bool, optional
-      When `False`, feedback to the user will generally be supressed.
+        When `False`, feedback to the user will generally be suppressed.
+
     **keywords
-      Any RunDynamics parameter, or ``particles``.
+        Any RunDynamics parameter, or ``particles``.
+
 
     Attributes
     ----------
     parameters : tuple of strings
-      A list of all possible RunDynamics parameters.
+        A list of all possible RunDynamics parameters.
+
     allowedData : tuple of strings
-      A list of all allowed particle data names.
+        A list of all allowed particle data names.
+
     units : string
-      The particle data units, as kept in the file.  Note that the
-      ``age`` attribute will be in days.
+        The particle data units, as kept in the file.  Note that the
+        ``age`` attribute will be in days.
+
     particles : np.recarray
-      The particle data.
+        The particle data.
+
     observer : SolarSysObject
-      The observer used to project particles onto the sky.
+        The observer used to project particles onto the sky.
+
     sky_coords : Projection
-      The particles projected onto the sky for ``observer``.
+        The particles projected onto the sky for ``observer``.
+
     array_coords : np.recarray
-      The particles projected onto a camera array.
+        The particles projected onto a camera array.
 
     The following attributes directly correspond to those found in
     RunDynamics parameter files:
@@ -118,7 +139,8 @@ class Simulation(object):
         self.params = params_template.copy()
         self.particles = None
         self.observer = keywords.get('observer')
-        version = keywords.get('version', None)
+        self.camera = keywords.get('camera')
+        version = keywords.get('version')
         self.verbose = keywords.get('verbose', True)
 
         if len(args) > 0:
@@ -165,7 +187,12 @@ class Simulation(object):
         else:
             self.observe()
 
-        self.array_coords = None
+        if self.camera is None:
+            self.array_coords = None
+        else:
+            import pdb
+            pdb.set_trace()
+            self.camera.sky2xy(self)
 
     def __getitem__(self, k):
         if isinstance(k, str):
@@ -228,8 +255,8 @@ Average rh (AU): {}
 
         # using the mean obliquity of the ecliptic at the J2000.0 epoch
         # eps = 23.439291111 degrees (Astronomical Almanac 2008)
-        ceps = 0.91748206207 # cos(eps)
-        seps = 0.39777715593 # sin(eps)
+        ceps = 0.91748206207  # cos(eps)
+        seps = 0.39777715593  # sin(eps)
 
         cbet = np.cos(bet)
         sbet = np.sin(bet)
@@ -246,7 +273,7 @@ Average rh (AU): {}
             if sdec > 1.0:
                 sdec = 1.0
         dec = np.arcsin(sdec)
-        ra = (ra + 4.0 * np.pi) % (2.0 * np.pi) # make sure 0 <= ra < 2pi
+        ra = (ra + 4.0 * np.pi) % (2.0 * np.pi)  # make sure 0 <= ra < 2pi
         return np.c_[ra, dec].T
 
     def init_particles(self):
@@ -295,14 +322,14 @@ Average rh (AU): {}
         date = date2time(self.params['date'])
 
         ro = self.observer.r(date)   # observer position
-        rt = self.r_c # comet position
+        rt = self.r_c  # comet position
 
         particle_radec = self._xyz2radec(ro, self.r_f)
         comet_radec = self._xyz2radec(ro, rt)
         delta = np.sqrt(np.sum((self.r_f - ro)**2, 1))
 
         self.sky_coords = Projection(comet_radec, particle_radec, delta,
-                                    observer=self.observer)
+                                     observer=self.observer)
 
     ######################################################################
     # properties from particles
@@ -484,4 +511,3 @@ Average rh (AU): {}
         if self.array_coords is None:
             raise TypeError("Particles not yet imaged.")
         return self.array_coords.y
-

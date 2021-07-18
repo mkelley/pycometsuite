@@ -9,10 +9,12 @@ __all__ = [
     'Instrument',
     'Camera',
     'Photometer',
-    ]
+]
+
 
 class InvalidAxis(Exception):
     pass
+
 
 class Instrument(object):
     """Simulated instruments that can record anything.
@@ -133,6 +135,7 @@ class Instrument(object):
         self.n += np.histogramdd(v, bins=self.bins, weights=n)[0]
         self.data += np.histogramdd(v, bins=self.bins, weights=w)[0]
 
+
 class Camera(Instrument):
     """A CometSuite instrument that only takes images of the sky.
 
@@ -206,6 +209,7 @@ class Camera(Instrument):
 
         from astropy.wcs import WCS
 
+        self.center = center
         if fitsheader is not None:
             self.wcs = WCS(fitsheader)
             self.shape = (fitsheader['NAXIS1'], fitsheader['NAXIS2'])
@@ -213,7 +217,6 @@ class Camera(Instrument):
             self.wcs = wcs
             self.shape = shape
         else:
-            self.center = center
             self.shape = shape
             self.scale = scale
             if centeryx is None:
@@ -236,7 +239,7 @@ class Camera(Instrument):
                                   bins=bins, range=range)[1]
             _bins.extend(bins)
 
-        Instrument.__init__(self, _axes, scaler=scaler, 
+        Instrument.__init__(self, _axes, scaler=scaler,
                             normalizer=normalizer, bins=_bins)
 
     @property
@@ -299,6 +302,7 @@ class Camera(Instrument):
         data.append(fits.ImageHDU(n, h))
         data.writeto(filename, **keywords)
 
+
 class Photometer(Instrument):
     """A single-entrance aperture photometer.
 
@@ -343,12 +347,12 @@ class Photometer(Instrument):
       The observation data.
 
     """
-    
+
     def __init__(self, rap, scaler=None, normalizer=None,
                  axes=None, bins=None, range=None):
 
         import astropy.units as u
-        
+
         assert rap.unit.is_equivalent(u.arcsec)
         self.rap = rap.to(u.arcsec).value
 
@@ -361,7 +365,7 @@ class Photometer(Instrument):
                                   bins=bins, range=range)[1]
             _bins.extend(bins)
 
-        Instrument.__init__(self, _axes, scaler=scaler, 
+        Instrument.__init__(self, _axes, scaler=scaler,
                             normalizer=normalizer, bins=_bins)
 
     def integrate(self, sim):
@@ -375,11 +379,13 @@ def ccd():
     return Camera(scaler=ScatteredLight(0.6),
                   shape=(1024, 1024), scale=(-1, 1))
 
+
 def ircam():
     """Generic 10 um camera."""
     from .scalers import ThermalEmission
     return Camera(scaler=ThermalEmission(10),
                   shape=(1024, 1024), scale=(-1, 1))
+
 
 def acs():
     """HST Advanced Camera for Surveys."""
@@ -387,11 +393,13 @@ def acs():
     return Camera(scaler=ScatteredLight(0.6),
                   shape=(4096, 4096), scale=(-0.05, 0.05))
 
+
 def wfc3_uvis():
     """HST Wide Field Camera 3, UVIS detector."""
     from .scalers import ScatteredLight
     return Camera(scaler=ScatteredLight(0.6),
                   shape=(4096, 4096), scale=(-0.04, 0.04))
+
 
 def di_mri():
     """Deep Impact Flyby spacecraft Medium Resolution Imager."""
