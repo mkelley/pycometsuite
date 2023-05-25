@@ -2,6 +2,12 @@
 
 Simulate cometary dust dynamics.
 
+This is the maintained Python version.  The unmaintained [C++ version](https://github.com/mkelley/cometsuite) is also available.
+
+This code has been used in the following publications:
+
+1. *Early Activity in Comet C/2014 UN271 Bernardinelli-Bernstein as Observed by TESS.* Farnham, T. L., Kelley, M. S. P., and Bauer, J. M. 2021. *The Planetary Science Journal* 2, 236
+
 ## Requirements
 
 * Python 3
