@@ -157,7 +157,7 @@ def quick_syndynes(
     if align == "north":
         theta_offset = np.pi / 2
     elif align == "sun":
-        geom = getgeom(getspiceobj(obj), Earth, date)
+        geom = getgeom(getspiceobj(obj), observer, date)
         theta_offset = -geom.sangle.rad
     else:
         raise ValueError("Invalid `align`")
