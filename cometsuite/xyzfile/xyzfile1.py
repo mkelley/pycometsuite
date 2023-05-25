@@ -1,6 +1,7 @@
 import io
 import numpy as np
 import yaml
+from yaml import CLoader as Loader, CDumper as Dumper
 from . import XYZFileBase
 from .. import __version__
 
@@ -43,7 +44,7 @@ save: [ radius, graindensity, beta, age, origin, r_i, v_ej, r_f ]
 ...
 """.format(__version__))
 
-params_template = yaml.load(header_template)
+params_template = yaml.load(header_template, Loader=Loader)
 
 header_example = ("""
 cometsuite: 1.0.0
@@ -143,7 +144,7 @@ class XYZFile1(XYZFileBase):
                 raise OSError("Cannot find end of YAML header.")
             self.header += line
             line = self.readline().decode('ascii')
-        self.params = yaml.load(self.header)
+        self.params = yaml.load(self.header, Loader=Loader)
 
         # save this position as the location of the first particle
         self.start = self.tell()
@@ -261,10 +262,10 @@ def params2header(params):
 
     """
 
-    header = yaml.dump(params, default_flow_style=False)
+    header = yaml.dump(params, default_flow_style=False, Dumper=Dumper)
     header += yaml.dump(dict(units=save2units(params['save']),
                              data=save2data(params['save'])),
-                        default_flow_style=False)
+                        default_flow_style=False, Dumper=Dumper)
     #header += "units: {}\ndata: {}\n...\n".format(
     #    save2units(params['save']), save2data(params['save']))
     header += '...\n'
