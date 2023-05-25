@@ -8,55 +8,78 @@ import cometsuite as cs
 from cometsuite.util import arg_array
 
 parser = argparse.ArgumentParser()
-parser.add_argument('target', help='syndynes source')
-parser.add_argument('date', help='observation date')
-parser.add_argument('--beta', type=arg_array(None, float),
-                    help='β values to simulate')
-parser.add_argument('--ndays', type=int, default=365,
-                    help='length of syndynes in days')
-parser.add_argument('--steps', type=int, default=101,
-                    help='number of time steps')
-#parser.add_argument('--observer', help='observer location')
-parser.add_argument('--prefix', default='syndynes',
-                    help='output file name prefix')
-parser.add_argument('--format', default='png', help='figure file format')
-parser.add_argument('--dpi', type=int, default=200, help='image DPI')
-parser.add_argument('--integrator', choices=['kepler', 'bs'])
+parser.add_argument("target", help="syndynes source")
+parser.add_argument("date", help="observation date")
+parser.add_argument(
+    "--beta", type=arg_array(None, float), help="β values to simulate"
+)
+parser.add_argument(
+    "--ndays", type=int, default=365, help="length of syndynes in days"
+)
+parser.add_argument(
+    "--steps", type=int, default=101, help="number of time steps"
+)
+# parser.add_argument('--observer', help='observer location')
+parser.add_argument(
+    "--prefix", default="syndynes", help="output file name prefix"
+)
+parser.add_argument(
+    "--align",
+    default="north",
+    choices=["north", "sun"],
+    help="align rotation with this direction (north->up or sun->right)",
+)
+parser.add_argument("--format", default="png", help="figure file format")
+parser.add_argument("--dpi", type=int, default=200, help="image DPI")
+parser.add_argument("--integrator", choices=["kepler", "bs"])
 
 args = parser.parse_args()
 
-if integrator == 'kepler':
+if integrator == "kepler":
     integrator = cs.Kepler()
 else:
     integrator = cs.BulirschStoer()
 
 fig = plt.figure(1)
-sim = cs.quick_syndynes(args.target, args.date, beta=args.beta, ndays=args.ndays,
-                        steps=args.steps, integrator=integrator)
+sim = cs.quick_syndynes(
+    args.target,
+    args.date,
+    beta=args.beta,
+    ndays=args.ndays,
+    steps=args.steps,
+    integrator=integrator,
+    align=args.align,
+)
 
 offsets = Table(
-    (sim.beta, sim.age, sim.sky_coords.offset[0], sim.sky_coords.offset[1],
-     sim.sky_coords.theta / 3600, sim.sky_coords.phi, sim.sky_coords.rho),
-    names=('beta', 'age', 'dra', 'ddec', 'theta', 'phi', 'rho'),
+    (
+        sim.beta,
+        sim.age,
+        sim.sky_coords.offset[0],
+        sim.sky_coords.offset[1],
+        sim.sky_coords.theta / 3600,
+        sim.sky_coords.phi,
+        sim.sky_coords.rho,
+    ),
+    names=("beta", "age", "dra", "ddec", "theta", "phi", "rho"),
 )
-offsets.meta['origin'] = 'cs-syndynes by Michael S. P. Kelley'
-offsets.meta['created'] = Time.now().iso
-offsets.meta['target'] = args.target
-offsets.meta['date'] = args.date
-offsets.meta['beta'] = list(args.beta)
-offsets.meta['ndays'] = args.ndays
-offsets.meta['steps'] = args.steps
-offsets['beta'].description = 'particle beta'
-offsets['age'].description = 'particle age, seconds'
-offsets['dra'].description = 'RA offset, degrees'
-offsets['ddec'].description = 'Dec offset, degrees'
-offsets['theta'].description = 'Radial offset, degrees'
-offsets['phi'].description = 'Position angle (E of N), degrees'
-offsets['rho'].description = 'Linear offset, km'
-offsets.write('.'.join((args.prefix, 'ecsv')), overwrite=True,
-              delimiter=',')
+offsets.meta["origin"] = "cs-syndynes by Michael S. P. Kelley"
+offsets.meta["created"] = Time.now().iso
+offsets.meta["target"] = args.target
+offsets.meta["date"] = args.date
+offsets.meta["beta"] = list(args.beta)
+offsets.meta["ndays"] = args.ndays
+offsets.meta["steps"] = args.steps
+offsets["beta"].description = "particle beta"
+offsets["age"].description = "particle age, seconds"
+offsets["dra"].description = "RA offset, degrees"
+offsets["ddec"].description = "Dec offset, degrees"
+offsets["theta"].description = "Radial offset, degrees"
+offsets["phi"].description = "Position angle (E of N), degrees"
+offsets["rho"].description = "Linear offset, km"
+offsets.write(".".join((args.prefix, "ecsv")), overwrite=True, delimiter=",")
 
-xyzfile = '.'.join((args.prefix, 'xyz'))
-with cs.XYZFile(xyzfile, 'w', sim) as outf:
+xyzfile = ".".join((args.prefix, "xyz"))
+with cs.XYZFile(xyzfile, "w", sim) as outf:
     outf.write_particles(sim.particles)
-fig.savefig('.'.join((args.prefix, args.format)), dpi=args.dpi)
+fig.savefig(".".join((args.prefix, args.format)), dpi=args.dpi)

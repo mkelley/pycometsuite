@@ -12,13 +12,16 @@ quick_syndynes
 """
 
 __all__ = [
-    'example_coma',
-    'example_coma_parallel',
-    'example_syndynes',
-    'quick_syndynes'
+    "example_coma",
+    "example_coma_parallel",
+    "example_syndynes",
+    "quick_syndynes",
 ]
 
+import os
 import numpy as np
+import matplotlib.pyplot as plt
+from mskpy import getspiceobj, KeplerState, Earth, getgeom
 
 
 def example_syndynes(filename):
@@ -31,14 +34,14 @@ def example_syndynes(filename):
       overwritten.
 
     """
-    from os.path import exists, split, splitext
 
-    if exists(filename):
+    if os.path.exists(filename):
         raise IOError("File already exists: {}".format(filename))
 
-    with open(filename, 'w') as outf:
-        synfilename = splitext(split(filename)[1])[0]
-        outf.write("""import numpy as np
+    with open(filename, "w") as outf:
+        synfilename = os.path.splitext(os.path.split(filename)[1])[0]
+        outf.write(
+            """import numpy as np
 import cometsuite as cs
 from mskpy import rarray, tarray
 from mskpy import getspiceobj, KeplerState, Earth
@@ -75,14 +78,25 @@ ax.legend(fontsize='medium', loc='center left',
           bbox_to_anchor=(1.1, 0.5))
 plt.tight_layout(rect=(0, 0, 0.8, 1))
 plt.draw()
-""".format(synfilename))
+""".format(
+                synfilename
+            )
+        )
 
 
-def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
-                   observer=None, integrator=None, **kwargs):
+def quick_syndynes(
+    obj,
+    date,
+    beta=None,
+    ndays=365,
+    steps=101,
+    observer=None,
+    integrator=None,
+    align="north",
+    **kwargs
+):
     """Compute and plot syndynes.
 
-    The `Kepler` integrator is used (two-body solution).
 
     Parameters
     ----------
@@ -108,19 +122,21 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     integrator : Integrator, optional
         Use this integrator, default `Kepler`.
 
+    align : string, optional
+        Rotate the plot to align "north" to up, or "sun" to right.
+
     **kwargs
         Any `synplot` keywords.
+
 
     Returns
     -------
     sim : Simulation
-      The syndyne simulation.
+        The syndyne simulation.
 
     """
 
     import cometsuite as cs
-    from mskpy import getspiceobj, KeplerState, Earth
-    import matplotlib.pyplot as plt
 
     if beta is None:
         beta = np.logspace(-3, 0, 7)
@@ -138,14 +154,23 @@ def quick_syndynes(obj, date, beta=None, ndays=365, steps=101,
     sim.observer = observer
     sim.observe()
 
+    if align == "north":
+        theta_offset = np.pi / 2
+    elif align == "sun":
+        geom = getgeom(getspiceobj(obj), Earth, date)
+        theta_offset = -geom.sangle.rad
+    else:
+        raise ValueError("Invalid `align`")
+
     plt.clf()
-    ax = plt.subplot(111, polar=True, theta_offset=np.pi / 2)
+    ax = plt.subplot(111, polar=True, theta_offset=theta_offset)
     cs.synplot(sim, **kwargs)
     ax.set_rmax(60)
-    labels = plt.setp(ax, xlabel='Position angle', ylabel=r'$\rho$ (arcsec)')
+    labels = plt.setp(ax, xlabel="Position angle", ylabel=r"$\rho$ (arcsec)")
     labels[1].set_rotation(0)
-    ax.legend(prop=dict(size='medium'), loc='center left',
-              bbox_to_anchor=(1.1, 0.5))
+    ax.legend(
+        prop=dict(size="medium"), loc="center left", bbox_to_anchor=(1.1, 0.5)
+    )
     plt.tight_layout(rect=(0, 0, 0.8, 1))
     plt.draw()
 
@@ -167,9 +192,10 @@ def example_coma(filename):
     if exists(filename):
         raise IOError("File already exists: {}".format(filename))
 
-    with open(filename, 'w') as outf:
+    with open(filename, "w") as outf:
         xyzfilename = splitext(split(filename)[1])[0]
-        outf.write("""from mskpy import getspiceobj, KeplerState
+        outf.write(
+            """from mskpy import getspiceobj, KeplerState
 import cometsuite as cs
 import cometsuite.generators as g
 import cometsuite.scalers as s
@@ -188,7 +214,10 @@ pgen.nparticles = 2000000
 
 integrator = cs.Kepler()
 cs.run(pgen, integrator, xyzfile='{}.xyz')
-""".format(xyzfilename))
+""".format(
+                xyzfilename
+            )
+        )
 
 
 def example_coma_parallel(filename):
@@ -206,9 +235,10 @@ def example_coma_parallel(filename):
     if exists(filename):
         raise IOError("File already exists: {}".format(filename))
 
-    with open(filename, 'w') as outf:
+    with open(filename, "w") as outf:
         xyzfilename = splitext(split(filename)[1])[0]
-        outf.write("""from multiprocessing import Pool
+        outf.write(
+            """from multiprocessing import Pool
 from mskpy import getspiceobj, KeplerState
 import cometsuite as cs
 import cometsuite.generators as g
@@ -237,4 +267,7 @@ with Pool() as pool:
 
     pool.close()
     pool.join()
-""".format(xyzfilename))
+""".format(
+                xyzfilename
+            )
+        )

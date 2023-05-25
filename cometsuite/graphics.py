@@ -9,11 +9,22 @@ from .simulation import Simulation
 from .xyzfile import XYZFile
 
 
-def synplot(sim, rlim=None, synchrone=False,
-            camera=None, offset=[0, 0], observer=None,
-            betas=None, ages=None, labels=None, tmark=None,
-            tanno=False, interp=False,
-            ax=None, **kwargs):
+def synplot(
+    sim,
+    rlim=None,
+    synchrone=False,
+    camera=None,
+    offset=[0, 0],
+    observer=None,
+    betas=None,
+    ages=None,
+    labels=None,
+    tmark=None,
+    tanno=False,
+    interp=False,
+    ax=None,
+    **kwargs
+):
     """Plot RunDynamics syndynes.
 
     The default is to plot syndynes/chrones in Celestial Coordinates
@@ -123,7 +134,7 @@ def synplot(sim, rlim=None, synchrone=False,
     if synchrone:
         syns = _get_synchrones(sim, xy, ages, labels, rlim)
     else:
-        syns = _get_syndynes(sim,  xy, betas, labels, rlim)
+        syns = _get_syndynes(sim, xy, betas, labels, rlim)
 
     lines = []
     for x, y, t, label in syns:
@@ -140,7 +151,7 @@ def synplot(sim, rlim=None, synchrone=False,
             for i in range(len(tmark)):
                 j = nearest(tmark[i] * 86400, t)
                 print(tmark[i], t[j])
-                ax.plot([x[j]], [y[j]], marker='|', color=c)
+                ax.plot([x[j]], [y[j]], marker="|", color=c)
                 if tanno is not False:
                     if np.iterable(tanno):
                         s = tanno[i]
@@ -203,15 +214,17 @@ def _get_synchrones(sim, xy, ages, labels, rlim):
 
 def xyzplot3d(xyzfile):
     from enthought.mayavi import mlab
-    r = xyzread(xyzfile, datalist=('r_f',))['r_f']
+
+    r = xyzread(xyzfile, datalist=("r_f",))["r_f"]
     r = r.T
-    mlab.points3d(r[0], r[1], r[2], mode='point', colormap='hot')
+    mlab.points3d(r[0], r[1], r[2], mode="point", colormap="hot")
     mlab.show()
 
 
 def xyzplotvolume(xyzfile):
     from enthought.mayavi import mlab
-    r = xyzread(xyzfile, datalist=('r_f',))['r_f']
+
+    r = xyzread(xyzfile, datalist=("r_f",))["r_f"]
     r -= r.mean(0)
     h = histogramdd(r.T, bins=30)
     v = h[0] / h[0].max()

@@ -6,3 +6,6 @@ build
 *.so
 __pycache__
 cometsuite/integrator/prop2b.c
+cometsuite/integrator/bsint.c
+.vscode
+.hypothesis
