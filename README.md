@@ -15,8 +15,9 @@ This code has been used in the following publications:
   * scipy
   * Cython
   * matplotlib
+  * astropy
   * [mskpy](https://github.com/mkelley/mskpy)
-  * spiceypy
+  * [spiceypy](https://github.com/AndrewAnnex/SpiceyPy)
 * GNU Scientific Library and GSL CBLAS library
 
 
