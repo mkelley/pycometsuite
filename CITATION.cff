@@ -1,0 +1,9 @@
+cff-version: 1.1.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: Kelley
+  given-names: Michael
+  orcid: https://orcid.org/0000-0002-6702-7676
+title: pycometsuite
+version: v1.0.0
+date-released: 2023-11-02
