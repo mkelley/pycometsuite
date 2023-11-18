@@ -1,5 +1,5 @@
 dist
-cometsuite*egg-info
+**cometsuite*egg-info
 build
 *~
 *.pyc
@@ -9,3 +9,6 @@ cometsuite/integrator/prop2b.c
 cometsuite/integrator/bsint.c
 .vscode
 .hypothesis
+
+_version.py
+.venv
