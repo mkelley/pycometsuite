@@ -14,9 +14,9 @@ author = "Michael S. P. Kelley"
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = [
+    "matplotlib.sphinxext.plot_directive",
     "sphinx_automodapi.automodapi",
     "numpydoc",
-    "matplotlib.sphinxext.plot_directive",
 ]
 
 templates_path = ["_templates"]

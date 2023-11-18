@@ -13,13 +13,15 @@ Quick start
 Syndynes
 ________
 
-Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke::
+Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke
 
 .. plot::
     :include-source:
+
+    >>> import numpy as np
     >>> from astropy.time import Time
     >>> import cometsuite as cs
-    >>> from mskpy import KeplerState
+    >>> from mskpy import KeplerState, SolarSysObject
     >>>
     >>> # observation date, comet's position and velocity in km and km/s
     >>> date = Time(2450643.5417, format="jd")
@@ -36,20 +38,28 @@ Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke::
     >>> # generates particles for this comet, to be observed at this date
     >>> particle_generator = cs.Coma(comet, date, composition=composition)
     >>>
-    >>> # generate syndynes for each of these β values, a 200 day length, and 31 time steps
+    >>> # generate syndynes for each of these β values, a 200 day length, and 101 time steps
     >>> beta = [0.001, 0.002, 0.004, 0.006, 0.008, 0.01, 0.1]
     >>> ndays = 200
-    >>> steps = 31
+    >>> steps = 101
     >>> cs.syndynes(particle_generator, beta=beta, ndays=ndays, steps=steps)
     >>>
     >>> integrator = cs.Kepler()
     >>> sim = cs.run(particle_generator, integrator)
     >>>
-    >>> # to plot the results, we need an observer
-    >>> earth = KeplerState([5.61856527e7, -1.41307139e8, -1.23261993e3],
-    ...                     [2.71884498e1, 1.09043893e1, -6.22859821e-04],
-    ...                     date)
-    >>> cs.synplot(sim, observer=earth)
+    >>> # to plot the results, we need to observe the particles
+    >>> earth = SolarSysObject(
+    ...     KeplerState([5.61856527e7, -1.41307139e8, -1.23261993e3],
+    ...                 [2.71884498e1, 1.09043893e1, -6.22859821e-04],
+    ...                 date)
+    ... )
+    >>> sim.observer = earth
+    >>> sim.observe()
+    >>>
+    >>> # setup axes and plot in polar coordinates; rotate so that 0 is up
+    >>> ax = plt.subplot(polar=True, theta_offset=np.pi / 2)
+    >>> cs.synplot(sim, ax=ax)
+    >>> ax.set_ylim(0, 2 * 3600)  # 4 degree FOV
 
 
 Monte Carlo Coma
