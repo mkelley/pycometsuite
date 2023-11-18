@@ -1,0 +1,28 @@
+[project]
+name = "pycometsuite"
+description = "Simulate cometary dust dynamics."
+readme = "README.md"
+authors = [
+    { name = "Michael S. P. Kelley", email = "msk@astro.umd.edu" }
+]
+license = { text = "MIT License" }
+dependencies = [
+    "numpy",
+    "scipy",
+    "astropy>=4",
+    "mskpy>=3",
+    "cython",
+    "spiceypy",
+    "matplotlib",
+]
+dynamic = ["version"]
+
+[project.urls]
+homepage = "https://github.com/mkelley/pycometsuite"
+
+[build-system]
+requires = ["setuptools>=45", "wheel", "setuptools_scm[toml]>=6.2"]
+build-backend = 'setuptools.build_meta'
+
+[tool.setuptools_scm]
+write_to = "cometsuite/_version.py"
