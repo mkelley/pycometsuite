@@ -7,7 +7,7 @@ build:
 
 python:
   install:
-      - method: pip
+    - method: pip
       path: .
       extra_requirements:
-          - docs
+        - docs
