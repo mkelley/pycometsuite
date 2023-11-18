@@ -29,3 +29,6 @@ numpydoc_show_class_members = False
 
 html_theme = "alabaster"
 html_static_path = ["_static"]
+html_theme_options = {
+    'page_width': 'auto',
+}
