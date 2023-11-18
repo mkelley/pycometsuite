@@ -2,14 +2,19 @@
 from distutils.core import Extension
 from setuptools import setup
 
+ext = [
+    Extension(
+        name="cometsuite.integrator.bsint",
+        sources=["cometsuite/integrator/bsint.pyx"],
+        libraries=["gsl", "gslcblas"],
+    ),
+    Extension(
+        name="cometsuite.integrator.prop2b",
+        sources=["cometsuite/integrator/prop2b.pyx"],
+    ),
+]
 
-ext = Extension(
-    name="cometsuite.integrator.bsint",
-    sources=["cometsuite/integrator/bsint.pyx"],
-    libraries=["gsl", "gslcblas"],
-)
-
-setup(ext_modules=[ext])
+setup(ext_modules=ext)
 
 # from glob import glob
 # from setuptools import setup, Extension, find_packages
