@@ -8,6 +8,8 @@ build:
 python:
   install:
     - method: pip
+      path: git+https://github.com/mkelley/mskpy.git#egg=mskpy
+    - method: pip
       path: .
       extra_requirements:
         - docs
