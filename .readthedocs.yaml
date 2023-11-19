@@ -7,8 +7,7 @@ build:
 
 python:
   install:
-    - method: pip
-      path: git+https://github.com/mkelley/mskpy.git#egg=mskpy
+    - requirements: docs/readthedocs-requirements.txt
     - method: pip
       path: .
       extra_requirements:
