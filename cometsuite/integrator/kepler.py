@@ -7,7 +7,6 @@ import astropy.constants
 import astropy.units as u
 from .core import Integrator
 from .prop2b import prop2b
-#from spiceypy import prop2b
 from ..state import State
 
 

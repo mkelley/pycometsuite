@@ -26,7 +26,7 @@ func (double t, const double y[], double f[],
   double mu_r3 = MU / r3;
 
   /* radiation force up to Poynting-Robertson drag */
-  double[3] rhat = { y[0] / r2, y[1] / r2, y[2] / r2 };
+  double[3] rhat = { y[0] / r1, y[1] / r1, y[2] / r1 };
   double vr_c = (y[3] * rhat[0] + y[4] * rhat[1] + y[5] * rhat[2]) / C;
   double betamu_r2 = beta * MU / r2;
 
