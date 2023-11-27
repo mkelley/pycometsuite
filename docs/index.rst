@@ -133,7 +133,7 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> camera.integrate(sim)
     >>> 
     >>> fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
-    >>> ax.imshow(camera.data, vmin=0, vmax=50, cmap="gray_r", extent=[29, -31, -29, 31])
+    >>> ax.imshow(camera.data, vmin=0, vmax=50, cmap="gray_r", extent=[29, -31, -29, 31], origin="lower")
     >>> plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
 
 .. attention::
