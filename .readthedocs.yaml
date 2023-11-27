@@ -10,7 +10,7 @@ build:
     - libgslcblas0
   jobs:
     post_install:
-      - python3 -c 'import mskpy.config'
+      - python3 -c "import mskpy.config"
       - cat ~/.config/mskpy/mskpy.cfg
 
 
