@@ -234,7 +234,12 @@ to compare them to a zero-ejection velocity particle::
 
 """
 
-__version__ = '1.0.0'
+from importlib.metadata import version as _version, PackageNotFoundError
+
+try:
+    __version__ = _version(__name__)
+except PackageNotFoundError:
+    pass
 
 from . import simulation
 from . import xyzfile

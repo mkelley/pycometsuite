@@ -1,0 +1,6 @@
+prune build
+prune docs/_build
+prune docs/api
+prune .github
+prune src
+global-exclude *.pyc *.o

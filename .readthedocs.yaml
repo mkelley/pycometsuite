@@ -1,0 +1,24 @@
+version: 2
+
+build:
+  os: "ubuntu-22.04"
+  tools:
+    python: "3.10"
+  apt_packages:
+    - libgsl27
+    - libgsl-dev
+    - libgslcblas0
+  jobs:
+    post_install:
+      - mkdir -p $HOME/data/kernels
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/latest_leapseconds.tls -O $HOME/data/kernels/naif.tls
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc -O $HOME/data/kernels/pck.tpc
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp -O $HOME/data/kernels/planets.bsp
+
+python:
+  install:
+    - requirements: docs/readthedocs-requirements.txt
+    - method: pip
+      path: .
+      extra_requirements:
+        - docs
