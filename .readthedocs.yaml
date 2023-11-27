@@ -11,9 +11,9 @@ build:
   jobs:
     post_install:
       - mkdir -p $HOME/data/kernels
-      - wget https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/latest_leapseconds.tls -O $HOME/data/kernels/naif.tls
-      - wget https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc -O $HOME/data/kernels/pck.tpc
-      - wget https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp -O $HOME/data/kernels/planets.bsp
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/lsk/latest_leapseconds.tls -O $HOME/data/kernels/naif.tls
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/pck/pck00011.tpc -O $HOME/data/kernels/pck.tpc
+      - wget --quiet https://naif.jpl.nasa.gov/pub/naif/generic_kernels/spk/planets/de440s.bsp -O $HOME/data/kernels/planets.bsp
 
 python:
   install:
