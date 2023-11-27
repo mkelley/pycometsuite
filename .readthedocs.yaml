@@ -8,8 +8,9 @@ build:
     - libgsl27
     - libgsl-dev
     - libgslcblas0
-  post-install:
-    - cat ~/.config/mskpy/mskpy.cfg
+  jobs:
+    post_install:
+      - cat ~/.config/mskpy/mskpy.cfg
 
 
 python:
