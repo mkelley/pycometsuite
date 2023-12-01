@@ -1,12 +1,12 @@
 import numpy as np
 from numpy import degrees
-import astropy.units as u
 
-__all__ = ['Simulation']
+__all__ = ["Simulation"]
 
 
 class NoObserver(Exception):
     """The observer is not defined."""
+
     pass
 
 
@@ -19,15 +19,16 @@ def particle_property(k):
 
     def setter(self, v):
         self.particles[k] = v
+
     return property(getter, setter)
 
 
 class Simulation(object):
     """A set of simulated particles and RunDynamics parameters.
 
-    Simulation(filename, [n=])
-    Simulation(sim, [observer=])
-    Simulation(**keywords)
+    ``Simulation(filename, [n=])``
+    ``Simulation(sim, [observer=])``
+    ``Simulation(**keywords)``
 
 
     Parameters
@@ -124,24 +125,46 @@ class Simulation(object):
 
     """
 
-    allowedData = ('radius', 'graindensity', 'beta', 'age', 'origin',
-                   'v_ej', 'r_i', 'v_i', 't_i', 'r_f', 'v_f', 't_f',
-                   'label')
-    _dtypes = dict(radius='<f8', graindensity='<f8', beta='<f8',
-                   age='<f8', origin='2<f8', v_ej='3<f8', r_i='3<f8',
-                   v_i='3<f8', t_i='<f8', r_f='3<f8', v_f='3<f8',
-                   t_f='3<f8', label='16S')
+    allowedData = (
+        "radius",
+        "graindensity",
+        "beta",
+        "age",
+        "origin",
+        "v_ej",
+        "r_i",
+        "v_i",
+        "t_i",
+        "r_f",
+        "v_f",
+        "t_f",
+        "label",
+    )
+    _dtypes = dict(
+        radius="<f8",
+        graindensity="<f8",
+        beta="<f8",
+        age="<f8",
+        origin="2<f8",
+        v_ej="3<f8",
+        r_i="3<f8",
+        v_i="3<f8",
+        t_i="<f8",
+        r_f="3<f8",
+        v_f="3<f8",
+        t_f="3<f8",
+        label="16S",
+    )
 
     def __init__(self, *args, **keywords):
-        from copy import copy
         from .xyzfile import XYZFile0, XYZFile1, params_template, xyz_version
 
         self.params = params_template.copy()
         self.particles = None
-        self.observer = keywords.get('observer')
-        self.camera = keywords.get('camera')
-        version = keywords.get('version')
-        self.verbose = keywords.get('verbose', True)
+        self.observer = keywords.get("observer")
+        self.camera = keywords.get("camera")
+        version = keywords.get("version")
+        self.verbose = keywords.get("verbose", True)
 
         if len(args) > 0:
             if type(args[0]) is str:
@@ -149,16 +172,15 @@ class Simulation(object):
                 filename = args[0]
                 if version is None:
                     version = xyz_version(filename)
-                if version[0] == '0':
+                if version[0] == "0":
                     XYZFile = XYZFile0
-                elif version[0] == '1':
+                elif version[0] == "1":
                     XYZFile = XYZFile1
                 else:
-                    raise NotImplementedError(
-                        "XYZFile version {}".format(version))
+                    raise NotImplementedError("XYZFile version {}".format(version))
 
-                with XYZFile(filename, 'r', verbose=self.verbose) as inf:
-                    sim = inf.read_simulation(n=keywords.get('n'))
+                with XYZFile(filename, "r", verbose=self.verbose) as inf:
+                    sim = inf.read_simulation(n=keywords.get("n"))
                     self.params = sim.params
                     self.particles = sim.particles
             elif type(args[0]) is Simulation:
@@ -168,19 +190,20 @@ class Simulation(object):
                 self.particles = sim.particles
                 self.verbose = sim.verbose
             else:
-                raise TypeError("Optional arguments are file name or "
-                                "a simulation instance.")
+                raise TypeError(
+                    "Optional arguments are file name or " "a simulation instance."
+                )
         else:
             # set up parameters from keywords
             for k, v in keywords.items():
                 self.params[k] = v
-            if keywords.get('allocate', True):
+            if keywords.get("allocate", True):
                 self.init_particles()
                 if self.verbose:
-                    print('[simulation] Initialized particle array')
+                    print("[simulation] Initialized particle array")
             else:
                 if self.verbose:
-                    print('[simulation] Particle array not initialized')
+                    print("[simulation] Particle array not initialized")
 
         if self.observer is None:
             self.sky_coords = None
@@ -191,6 +214,7 @@ class Simulation(object):
             self.array_coords = None
         else:
             import pdb
+
             pdb.set_trace()
             self.camera.sky2xy(self)
 
@@ -208,7 +232,7 @@ class Simulation(object):
         if isinstance(k, (slice, np.ndarray, list)):
             sim.particles = self.particles[k]
         else:
-            sim.particles = self.particles[k:k + 1]
+            sim.particles = self.particles[k : k + 1]
         if self.sky_coords is not None:
             sim.sky_coords = self.sky_coords[k]
         if self.array_coords is not None:
@@ -229,7 +253,10 @@ class Simulation(object):
 
     def __repr__(self):
         from .xyzfile import params2header
-        return (params2header(self.params) + """
+
+        return (
+            params2header(self.params)
+            + """
 Actual number of particles: {}
 Average log(beta): {}
 Average beta: {}
@@ -237,21 +264,23 @@ Average radius (micron): {}
 Average density (g/cm3): {}
 Average age (days): {}
 Average rh (AU): {}
-""".format(len(self),
-           None if self.beta is None else np.log10(self.beta).mean(),
-           None if self.beta is None else self.beta.mean(),
-           None if self.radius is None else self.radius.mean(),
-           None if self.graindensity is None else self.graindensity.mean(),
-           None if self.age is None else self.age.mean() / 86400.0,
-           None if self.rh is None else self.rh.mean()
-           ))
+""".format(
+                len(self),
+                None if self.beta is None else np.log10(self.beta).mean(),
+                None if self.beta is None else self.beta.mean(),
+                None if self.radius is None else self.radius.mean(),
+                None if self.graindensity is None else self.graindensity.mean(),
+                None if self.age is None else self.age.mean() / 86400.0,
+                None if self.rh is None else self.rh.mean(),
+            )
+        )
 
     def _xyz2radec(self, ro, rt):
         """Heliocentric ecliptic rectangular coordinates to RA, Dec."""
         rot = rt - ro
 
         lam = np.arctan2(rot.T[1], rot.T[0])
-        bet = np.arctan2(rot.T[2], np.sqrt(rot.T[0]**2 + rot.T[1]**2))
+        bet = np.arctan2(rot.T[2], np.sqrt(rot.T[0] ** 2 + rot.T[1] ** 2))
 
         # using the mean obliquity of the ecliptic at the J2000.0 epoch
         # eps = 23.439291111 degrees (Astronomical Almanac 2008)
@@ -291,8 +320,8 @@ Average rh (AU): {}
         None
 
         """
-        dtypes = [(k, self._dtypes[k]) for k in self.params['save']]
-        self.particles = np.recarray(self.params['nparticles'], dtypes)
+        dtypes = [(k, self._dtypes[k]) for k in self.params["save"]]
+        self.particles = np.recarray(self.params["nparticles"], dtypes)
 
     def observe(self):
         """Observe the particles with the observer..
@@ -310,42 +339,47 @@ Average rh (AU): {}
         """
 
         from mskpy.util import date2time
-        from mskpy.ephem import Geom
         from .projection import Projection
 
         if self.observer is None:
             raise NoObserver("Observer not defined.")
         if self.verbose:
-            print(("[simulation] Observing the simulation from {}".format(
-                self.observer.name)))
+            print(
+                (
+                    "[simulation] Observing the simulation from {}".format(
+                        self.observer.name
+                    )
+                )
+            )
 
-        date = date2time(self.params['date'])
+        date = date2time(self.params["date"])
 
-        ro = self.observer.r(date)   # observer position
+        ro = self.observer.r(date)  # observer position
         rt = self.r_c  # comet position
 
         particle_radec = self._xyz2radec(ro, self.r_f)
         comet_radec = self._xyz2radec(ro, rt)
-        delta = np.sqrt(np.sum((self.r_f - ro)**2, 1))
+        delta = np.sqrt(np.sum((self.r_f - ro) ** 2, 1))
 
-        self.sky_coords = Projection(comet_radec, particle_radec, delta,
-                                     observer=self.observer)
+        self.sky_coords = Projection(
+            comet_radec, particle_radec, delta, observer=self.observer
+        )
 
     ######################################################################
     # properties from particles
-    radius = particle_property('radius')
-    graindensity = particle_property('graindensity')
-    beta = particle_property('beta')
-    age = particle_property('age')
-    origin = particle_property('origin')
-    v_ej = particle_property('v_ej')
-    r_i = particle_property('r_i')
-    v_i = particle_property('v_i')
-    t_i = particle_property('t_i')
-    r_f = particle_property('r_f')
-    v_f = particle_property('v_f')
-    t_f = particle_property('t_f')
-    label = particle_property('label')
+    radius = particle_property("radius")
+    graindensity = particle_property("graindensity")
+    beta = particle_property("beta")
+    age = particle_property("age")
+    origin = particle_property("origin")
+    v_ej = particle_property("v_ej")
+    r_i = particle_property("r_i")
+    v_i = particle_property("v_i")
+    t_i = particle_property("t_i")
+    r_f = particle_property("r_f")
+    v_f = particle_property("v_f")
+    t_f = particle_property("t_f")
+    label = particle_property("label")
 
     ######################################################################
     # derived properties
@@ -388,10 +422,11 @@ Average rh (AU): {}
     def d(self):
         """Target-particle distance (km)."""
         from mskpy import getxyz
+
         if self.r_f is None:
             return None
         RHt = getxyz(self.comet, date=self.jd, kernel=self.kernel)[0]
-        return np.sqrt(np.sum((self.r_f - RHt)**2, 1))
+        return np.sqrt(np.sum((self.r_f - RHt) ** 2, 1))
 
     @property
     def rh_i(self):
@@ -417,26 +452,28 @@ Average rh (AU): {}
         """Comet heliocentric coordintes at time of observation."""
         from mskpy import getxyz
 
-        if 'r' in self.params['comet']:
-            return self.params['comet']['r']
+        if "r" in self.params["comet"]:
+            return self.params["comet"]["r"]
         else:
-            return getxyz(self.params['comet']['name'],
-                          date=self.params['date'],
-                          kernel=self.params['comet']['kernel'])[0]
+            return getxyz(
+                self.params["comet"]["name"],
+                date=self.params["date"],
+                kernel=self.params["comet"]["kernel"],
+            )[0]
 
     @property
     def m(self):
         """Mass (g)."""
         if (self.radius is None) or (self.graindensity is None):
             return None
-        return 4 / 3. * np.pi * self.graindensity * (self.radius * 1e-4)**3
+        return 4 / 3.0 * np.pi * self.graindensity * (self.radius * 1e-4) ** 3
 
     @property
     def cs(self):
         """Cross section (cm^2)."""
         if self.radius is None:
             return None
-        return np.pi * (self.radius * 1e-4)**2
+        return np.pi * (self.radius * 1e-4) ** 2
 
     ######################################################################
     # properties from sky_coords

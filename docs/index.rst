@@ -1,4 +1,4 @@
-
+==========
 cometsuite
 ==========
 
@@ -8,9 +8,8 @@ Cometary dust dynamics simulator.
    :maxdepth: 2
    :caption: Contents:
 
-
 Quick start
------------
+===========
 
 Syndynes
 ________
@@ -140,6 +139,11 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
 
     The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
 
+Cometsuite
+==========
+
+.. automodapi:: cometsuite.simulation
+    :no-heading:
 
 Indices and tables
 ==================

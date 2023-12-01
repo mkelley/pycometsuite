@@ -18,8 +18,8 @@ class Kepler(Integrator):
 
     The default behavior is for orbits around the Sun.
 
-    Paramters
-    ---------
+    Parameters
+    ----------
     M : float or Quantity, optional
       Mass of the central object.  [float: kg]
     GM : float or Quantity, optional
