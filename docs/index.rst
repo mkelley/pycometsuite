@@ -38,26 +38,26 @@ Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke:
     >>> comet = KeplerState(rc, vc, date)
     >>> earth = KeplerState(re, ve, date)
     >>> 
-    >>> # the composition defines a relationship between β and size
-    >>> # syndynes must use a geometric relationship (beta = 0.57 / a / rho)
-    >>> composition = cs.Geometric()
-    >>> 
-    >>> # generates particles for this comet, to be observed at this date
-    >>> particle_generator = cs.Coma(comet, date, composition=composition)
-    >>> 
     >>> # generate syndynes for each of these β values, a 200 day length, and 101 time steps
     >>> beta = [0.001, 0.002, 0.004, 0.006, 0.008, 0.01, 0.1]
     >>> ndays = 200
     >>> steps = 101
-    >>> cs.syndynes(particle_generator, beta=beta, ndays=ndays, steps=steps)
     >>> 
-    >>> integrator = cs.Kepler()
-    >>> sim = cs.run(particle_generator, integrator)
-    >>> 
-    >>> # to plot the results, we need to observe the particles
-    >>> sim.observer = earth
-    >>> sim.observe()
-    >>> 
+    >>> # quick_syndynes is, by default, Kelperian-based
+    >>> sim = cs.quick_syndynes(comet,
+    ...                         date,
+    ...                         beta=beta,
+    ...                         ndays=ndays,
+    ...                         steps=steps,
+    ...                         observer=earth)
+    >>> ax = plt.gca()
+    >>> plt.setp(ax,
+    ...          xlabel='Position angle',
+    ...          ylabel=r'$\rho$ (arcsec)',
+    ...          rmax=(2 * 3600))  # 4 degree FOV
+
+
+..
     >>> # setup axes and plot in polar coordinates; rotate so that 0 is up
     >>> fig = plt.figure(figsize=(8, 5), dpi=200)
     >>> ax = plt.subplot(polar=True, theta_offset=np.pi / 2)
