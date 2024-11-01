@@ -21,7 +21,7 @@ __all__ = [
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from mskpy import getspiceobj, KeplerState, Earth, getgeom
+from mskpy import getspiceobj, State, KeplerState, Earth, getgeom
 
 
 def example_syndynes(filename):
@@ -100,21 +100,20 @@ def quick_syndynes(
 
     Parameters
     ----------
-    obj : string
-        The comet name, whose SPICE kernel can be retrieved via
-        `mskpy.getspiceobj(obj)`.
+    obj : string or `~mskpy.ephem.state.State`
+        The source object as a name, whose SPICE kernel can be retrieved via
+        `mskpy.getspiceobj(obj)`, or as a ``State`` object.
 
     date : various
-        The time of observation in a format acceptable to
-        `mskpy.date2time`.
+        The time of observation in a format acceptable to `mskpy.date2time`.
 
     beta : array, optional
 
     ndays : float, optional
 
     steps : int, optional
-        Parameters for the generator setup function, `syndynes`.  If
-        `beta` is `None`, a default set will be used.
+        Parameters for the generator setup function, `syndynes`.  If `beta` is
+        `None`, a default set will be used.
 
     observer : SolarSysObject, optional
         The observer.  If `observer` is `None`, Earth will be used.
@@ -143,7 +142,11 @@ def quick_syndynes(
     if observer is None:
         observer = Earth
 
-    target = KeplerState(getspiceobj(obj), date)
+    if isinstance(obj, State):
+        target = obj
+    else:
+        target = KeplerState(getspiceobj(obj), date)
+
     if integrator is None:
         integrator = cs.Kepler()
 
@@ -165,13 +168,13 @@ def quick_syndynes(
     plt.clf()
     ax = plt.subplot(111, polar=True, theta_offset=theta_offset)
     cs.synplot(sim, **kwargs)
-    ax.set_rmax(60)
+    # ax.set_rmax()
     labels = plt.setp(ax, xlabel="Position angle", ylabel=r"$\rho$ (arcsec)")
     labels[1].set_rotation(0)
     ax.legend(
         prop=dict(size="medium"), loc="center left", bbox_to_anchor=(1.1, 0.5)
     )
-    plt.tight_layout(rect=(0, 0, 0.8, 1))
+    plt.tight_layout(rect=(0, 0, 0.6, 1))
     plt.draw()
 
     return sim

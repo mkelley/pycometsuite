@@ -2,6 +2,7 @@ dist
 **cometsuite*egg-info
 build
 docs/_build
+docs/api
 *~
 *.pyc
 *.so

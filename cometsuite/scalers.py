@@ -3,7 +3,7 @@ scalers - Scale factors based on particle parameters.
 =====================================================
 
 Note: When new scalers are added, those that may be used by
-`ParticleGenerator`s should also be added to `ParticleGenerator.reset`.
+`ParticleGenerator` should also be added to `ParticleGenerator.reset` .
 
 
 Classes
@@ -75,6 +75,7 @@ __all__ = [
     'flux_scaler'
 ]
 
+from copy import copy
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import spherical_to_cartesian
@@ -111,7 +112,7 @@ class Scaler(object):
         return '<Scaler>'
 
     def copy(self):
-        return eval(str(self))
+        return copy(self)
 
     def formula(self):
         return ""
@@ -123,23 +124,26 @@ class Scaler(object):
 class CompositeScaler(Scaler):
     """A collection of multiple scale factors.
 
-    To create a `CompositeScaler`:
+    To create a `CompositeScaler`::
 
-      total_scale = CompositeScaler(SpeedRh(), SpeedRadius())
-      total_scale = SpeedRh() * SpeedRadius()
+        total_scale = CompositeScaler(SpeedRh(), SpeedRadius())
+        total_scale = SpeedRh() * SpeedRadius()
 
     To remove the `SpeedRh` scale::
 
-      del total_scale.scales[0]
+        del total_scale.scales[0]
 
-    Length-one `CompositeScaler`s may also be created:
+    A length-one `CompositeScaler` may also be created::
 
-      s = CompositeScaler(SpeedRh())
-      s = SpeedRh() * UnityScaler()
+        s = CompositeScaler(SpeedRh())
+        s = SpeedRh() * UnityScaler()
+
 
     Raises
     ------
     InvalidScaler
+        If a scaler is not an instance of `Scaler`, `CompositeScaler`, `float`,
+        or `int`.
 
     """
 
@@ -221,6 +225,7 @@ class PSDScaler(Scaler):
 class ActiveArea(Scaler):
     """Emission from an active area.
 
+
     Parameters
     ----------
     w : float
@@ -231,6 +236,7 @@ class ActiveArea(Scaler):
 
     func : string
         Scale varies with angle following: sin, sin2, cos, cos2
+
 
     Methods
     -------
@@ -287,6 +293,7 @@ class ActiveAreaOld(Scaler):
     func : string
         Scale varies with angle following: sin, sin2, cos, cos2
 
+
     Methods
     -------
     scale : Scale factor - 0 to 1 inside cone, 0 outside.
@@ -341,6 +348,7 @@ class Angle(Scaler):
     """Scale by angle from a vector, with optional constant.
 
     v = scale * func(th) + const
+
 
     Parameters
     ----------
@@ -452,13 +460,16 @@ class FractalPorosity(Scaler):
 
       rho = rho0 * (a / a0)**(D - 3)
 
+
     Parameters
     ----------
     D : float
-      Fractal dimension.
+        Fractal dimension.
+
     a0 : float, optional
-      Minimum grian size.  Particles smaller than this will always be
-      solid. [micrometer]
+        Minimum grian size.  Particles smaller than this will always be
+        solid. [micrometer]
+
 
     Methods
     -------
@@ -528,11 +539,12 @@ class GaussianActiveArea(ActiveArea):
 class ParameterWeight(Scaler):
     """Scale value based on a parameter.
 
+
     Parameters
     ----------
     key : string
-      The particle parameter key that defines the scale factor, e.g.,
-      'age'.
+        The particle parameter key that defines the scale factor, e.g., 'age'.
+
 
     Methods
     -------
@@ -558,19 +570,24 @@ class PSD_Hanner(PSDScaler):
 
     n(a) = Np * (1 - a0 / a)**M * (a0 / a)**N
 
+
     Parameters
     ----------
     a0 : float
-      Minimum grain radius. [micrometer]
+        Minimum grain radius. [micrometer]
+
     N : float
-      PSD for large grains (`a >> ap`) is `a**-N`.
+        PSD for large grains (`a >> ap`) is `a**-N`.
+
     M : float, optional
-      `ap = a0 * (M + N) / N`.  One of `M` or `ap` must be provided.
+        `ap = a0 * (M + N) / N`.  One of `M` or `ap` must be provided.
+
     ap : float, optional
-      Peak grain radius.  One of `M` or `ap` must be
-      provided. [micrometer]
+        Peak grain radius.  One of `M` or `ap` must be provided. [micrometer]
+
     Np : float, optional
-      Number of grains with radius `ap`.
+        Number of grains with radius `ap`.
+
 
     Methods
     -------
@@ -611,6 +628,7 @@ class PSD_BrokenPowerLaw(PSDScaler):
     n(a) = N1 * a**N for a < a0
          = N1 * a0**(N - M) * a**M for a > a0
 
+
     Parameters
     ----------
     N : float
@@ -624,6 +642,7 @@ class PSD_BrokenPowerLaw(PSDScaler):
 
     N1 : float, optional
         Number of 1-micrometer-radius particles.
+
 
     Methods
     -------
@@ -671,6 +690,7 @@ class PSD_PowerLawLargeScaled(PSDScaler):
 
     n(a) = N1 * a**N
 
+
     Parameters
     ----------
     N : float
@@ -684,6 +704,7 @@ class PSD_PowerLawLargeScaled(PSDScaler):
 
     N1 : float, optional
         Number of 1-micrometer-radius particles.
+
 
     Methods
     -------
@@ -724,12 +745,15 @@ class PSD_PowerLaw(PSDScaler):
 
     n(a) = N1 * a**N
 
+
     Parameters
     ----------
     N : float
-      Power-law slope.
+        Power-law slope.
+
     N1 : float, optional
-      Number of 1-micrometer-radius particles.
+        Number of 1-micrometer-radius particles.
+
 
     Methods
     -------
@@ -760,12 +784,15 @@ class PSD_RemoveLogBias(PSDScaler):
 
     For simulations with radius picked from the Log() generator.
 
+
     Parameters
     ----------
     Nt : float, optional
+        Normalize to this total number of particles.
+
     aminmax : array, optional
-      Normalize to `Nt` total particles over the radius range
-      `aminmax`.
+        Normalize over this radius range.
+
 
     Methods
     -------
@@ -823,10 +850,12 @@ class QRh(ProductionRateScaler):
 
     Qd \propto rh_i**k
 
+
     Parameters
     ----------
     k : float
       Power-law scale factor slope.
+
 
     Methods
     -------
@@ -861,15 +890,19 @@ class QRhDouble(ProductionRateScaler):
 
     The function is normalized to 1.0 at `rh0`.
 
+
     Parameters
     ----------
     k1, k2 : float
       Power-law scale factor slopes.
+
     k12 : float
       Parameter controlling the width of the transition from `k1` to
       `k2`.
+
     rh0 : float
       The transition heliocentric distance. [AU]
+
 
     Methods
     -------
@@ -916,12 +949,15 @@ class ScatteredLight(Scaler):
       Qsca = (2 * pi * a / wave)**4  for a < wave / 2 / pi
       Qsca = 1.0                     for a >= wave / 2 / pi
 
+
     Parameters
     ----------
     wave : float
       Wavelength of the light. [micrometers]
+
     unit : astropy Unit
       The flux density units of the scale factor.
+
 
     Methods
     -------
@@ -931,15 +967,15 @@ class ScatteredLight(Scaler):
 
     def __init__(self, wave, unit=u.Unit('W/(m2 um)')):
         self.unit = unit
-        self.wave = wave
+        self.wave = wave.to("um")
 
     def __str__(self):
-        return 'ScatteredLight({}, unit={})'.format(self.wave, repr(self.unit))
+        return 'ScatteredLight(Quantity("{}"), unit={})'.format(str(self.wave), repr(self.unit))
 
     def scale(self, p):
         from mskpy.calib import solar_flux
         Q = np.ones_like(p.radius)
-        k = self.wave / 2 / np.pi
+        k = self.wave.value / 2 / np.pi
         i = p.radius < k
         if any(i):
             Q[i] = (p.radius[i] / k)**4
@@ -954,17 +990,21 @@ class SpeedLimit(Scaler):
     If the particle speed is outside the range [`smin`, `smax`], the
     returned scale factor is 0.0.  1.0, otherwise.
 
+
     Parameters
     ----------
     smin : float, optional
       Minimum ejection speed. [km/s]
+
     smax : float, optional
       Maximum ejection speed. [km/s]
+
     scales : Scaler or CompositeScaler, optional
       Normalize the speed with `scales` before applying limits.  For
       example, if a simulation was picked using over a range of
       values, then scaled with `SpeedRadius`, set `scales` to use the
       same SpeedRadius to undo the scaling.
+
 
     Methods
     -------
@@ -1003,12 +1043,15 @@ class SpeedRadius(Scaler):
 
       scale = (a / a0)**k
 
+
     Parameters
     ----------
     k : float, optional
       Power-law exponent.
+
     a0 : float, optional
       Normalization radius.
+
 
     Methods
     -------
@@ -1028,18 +1071,21 @@ class SpeedRadius(Scaler):
 
 
 class SpeedRh(Scaler):
-    """Speed scale factor based on |r_i|.
+    """Speed scale factor based on :math:`|r_i|`.
 
     For `rh` measured in AU::
 
       scale = (rh / rh0)**k
 
+
     Parameters
     ----------
     k : float, optional
-      Power-law exponent.
+        Power-law exponent.
+
     rh0 : float, optional
-      Normalization distance.
+        Normalization distance.
+
 
     Methods
     -------
@@ -1065,10 +1111,12 @@ class SpeedRh(Scaler):
 class SunCone(Scaler):
     """A cone of emission ejected toward the Sun.
 
+
     Parameters
     ----------
     w : float
       Cone full opening angle. [deg]
+
 
     Methods
     -------
@@ -1091,6 +1139,7 @@ class SunSpeedAngle(SpeedAngle):
     """Scale speed by angle from Sun, with optional constant.
 
     v = scale * func(th) + const
+
 
     Parameters
     ----------
@@ -1124,25 +1173,29 @@ class ThermalEmission(Scaler):
 
       Qem * sigma * B / Delta**2
 
-    where `sigma` is the cross-sectional area of the grain, and `S` is
-    the solar flux.  The scattering efficiency is::
+    where `sigma` is the cross-sectional area of the grain, and `S` is the solar
+    flux.  The scattering efficiency is::
 
-      Qem = 2 * pi * a / wave  for a < wave / 2 / pi
-      Qem = 1.0                for a >= wave / 2 / pi
+      Qem = 2 * pi * a / wave  for a < wave / 2 / pi Qem = 1.0 for a >= wave / 2
+      / pi
+
 
     Parameters
     ----------
     wave : float
-      Wavelength of the light. [micrometers]
+        Wavelength of the light. [micrometers]
+
     unit : astropy Unit, optional
-      The flux density units of the scale factor.
+        The flux density units of the scale factor.
+
     composition : Composition, optional
-      Use this composition, rather than anything specified in the
-      simluation.
+        Use this composition, rather than anything specified in the simulation.
+
     require_grain_model : bool, optional
-      If `True`, and a grain temperature model cannot be found, throw
-      an exception.  If `False`, use a blackbody temperature as a
-      fail-safe model.
+        If `True`, and a grain temperature model cannot be found, throw an
+        exception.  If `False`, use a blackbody temperature as a fail-safe
+        model.
+
 
     Methods
     -------
@@ -1232,21 +1285,26 @@ class UnityScaler(Scaler):
 def flux_scaler(Qd=0, psd='a^-3.5', thermal=24, scattered=-1, log_bias=True):
     """Weight a comet simulation with commonly used scalers.
 
+
     Parameters
     ----------
     Qd : float, optional
-      Specify `k` in `QRh(k)`.
+        Specify `k` in `QRh(k)`.
+
     psd : string, optional
-      Particle size distribution, one of 'ism', 'a^k', or
-      'hanner a0 N ap'.
+        Particle size distribution, one of 'ism', 'a^k', or 'hanner a0 N ap'.
+
     thermal : float, optional
-      Wavelength of the thermal emission.  Set to <= 0 to
-      disable. [micrometers]
+        Wavelength of the thermal emission.  Set to <= 0 to disable.
+        [micrometers]
+
     scattered : float, optional
-      Wavelength of the scattered light.  Set to <= 0 to
-      disable. [micrometers]
+        Wavelength of the scattered light.  Set to <= 0 to disable.
+        [micrometers]
+
     log_bias : bool, optional
-      If `True`, include `PSD_RemoveLogBias` in the scaler.
+        If `True`, include `PSD_RemoveLogBias` in the scaler.
+
 
     Returns
     -------
@@ -1289,23 +1347,29 @@ def mass_calibrate(Q0, scaler, params, n=None):
 
     Requires particles generated uniformly over time.
 
+
     Parameters
     ----------
     Q0 : Quantity
-      The dust production rate (mass per time) at time of observation.
+        The dust production rate (mass per time) at time of observation.
+
     scaler : Scaler or CompositeScaler
-      The simluation scale factors.
+        The simulation scale factors.
+
     params : dict
-      The parameters of the simulation.
+        The parameters of the simulation.
+
     n : int, optional
-      The number of particles in the simulation.  The default is to
-      use `params['nparticles']`, but this may not always be desired.
+        The number of particles in the simulation.  The default is to use
+        `params['nparticles']`, but this may not always be desired.
+
 
     Returns
     -------
     calib : float
-      The calibration factor for the simulation to place simulation
-      particles in units of coma particles.
+        The calibration factor for the simulation to place simulation particles
+        in units of coma particles.
+
 
     Notes
     -----

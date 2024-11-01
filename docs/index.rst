@@ -5,8 +5,10 @@ cometsuite
 Cometary dust dynamics simulator.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :maxdepth: 2
+    :caption: Contents:
+
+    instruments
 
 Quick start
 ===========
@@ -38,26 +40,26 @@ Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke:
     >>> comet = KeplerState(rc, vc, date)
     >>> earth = KeplerState(re, ve, date)
     >>> 
-    >>> # the composition defines a relationship between β and size
-    >>> # syndynes must use a geometric relationship (beta = 0.57 / a / rho)
-    >>> composition = cs.Geometric()
-    >>> 
-    >>> # generates particles for this comet, to be observed at this date
-    >>> particle_generator = cs.Coma(comet, date, composition=composition)
-    >>> 
     >>> # generate syndynes for each of these β values, a 200 day length, and 101 time steps
     >>> beta = [0.001, 0.002, 0.004, 0.006, 0.008, 0.01, 0.1]
     >>> ndays = 200
     >>> steps = 101
-    >>> cs.syndynes(particle_generator, beta=beta, ndays=ndays, steps=steps)
     >>> 
-    >>> integrator = cs.Kepler()
-    >>> sim = cs.run(particle_generator, integrator)
-    >>> 
-    >>> # to plot the results, we need to observe the particles
-    >>> sim.observer = earth
-    >>> sim.observe()
-    >>> 
+    >>> # quick_syndynes is, by default, Kelperian-based
+    >>> sim = cs.quick_syndynes(comet,
+    ...                         date,
+    ...                         beta=beta,
+    ...                         ndays=ndays,
+    ...                         steps=steps,
+    ...                         observer=earth)
+    >>> ax = plt.gca()
+    >>> plt.setp(ax,
+    ...          xlabel='Position angle',
+    ...          ylabel=r'$\rho$ (arcsec)',
+    ...          rmax=(2 * 3600))  # 4 degree FOV
+
+
+..
     >>> # setup axes and plot in polar coordinates; rotate so that 0 is up
     >>> fig = plt.figure(figsize=(8, 5), dpi=200)
     >>> ax = plt.subplot(polar=True, theta_offset=np.pi / 2)
@@ -108,7 +110,7 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> #   - sizes from 0.1 μm to 1 mm
     >>> #   - isotropic dust production from a point source nucleus
     >>> #   - speed = 0.3 rh**-0.5 a**-0.5 (km / s)
-    >>> # generate 20,000 particles
+    >>> # generate 2,000 particles
     >>> 
     >>> pgen = cs.Coma(comet, date)
     >>> pgen.composition = cs.Geometric(rho0=1)
@@ -139,11 +141,12 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
 
     The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
 
-Cometsuite
-==========
+.. Cometsuite
+.. ==========
 
-.. automodapi:: cometsuite.simulation
-    :no-heading:
+.. .. automodapi:: cometsuite
+..     :no-heading:
+..     :headings: =-
 
 Indices and tables
 ==================
