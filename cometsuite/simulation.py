@@ -26,8 +26,7 @@ def particle_property(k):
 class Simulation(object):
     """A set of simulated particles and RunDynamics parameters.
 
-    ``Simulation(filename, [n=])``
-    ``Simulation(sim, [observer=])``
+    ``Simulation(filename, [n=])`` ``Simulation(sim, [observer=])``
     ``Simulation(**keywords)``
 
 
@@ -52,8 +51,8 @@ class Simulation(object):
         When reading from a file, assume this version of XYZFile.
 
     allocate : bool, optional
-        When intializing an empty simulation, set to `False` to prevent
-        the `particles` record array from being allocated.
+        When intializing an empty simulation, set to `False` to prevent the
+        `particles` record array from being allocated.
 
     verbose : bool, optional
         When `False`, feedback to the user will generally be suppressed.
@@ -71,8 +70,8 @@ class Simulation(object):
         A list of all allowed particle data names.
 
     units : string
-        The particle data units, as kept in the file.  Note that the
-        ``age`` attribute will be in days.
+        The particle data units, as kept in the file.  Note that the ``age``
+        attribute will be in days.
 
     particles : np.recarray
         The particle data.
@@ -86,40 +85,50 @@ class Simulation(object):
     array_coords : np.recarray
         The particles projected onto a camera array.
 
-    The following attributes directly correspond to those found in
-    RunDynamics parameter files:
+    The following attributes directly correspond to those found in RunDynamics
+    parameter files:
 
-      comet, kernel, jd, xyzfile, labelprefix (corrsponds to label),
-      pfunc, tol, planets, planetlookup, closeapproaches, box, ltt,
-      save, synbeta (corresponds to beta), ndays, steps, orbit,
-      nparticles, units, data
+        comet, kernel, jd, xyzfile, labelprefix (corresponds to label), pfunc,
+        tol, planets, planetlookup, closeapproaches, box, ltt, save, synbeta
+        (corresponds to beta), ndays, steps, orbit, nparticles, units, data
 
-      label and beta were renamed to allow these attributes to be used
-      for the saved data.
+        label and beta were renamed to allow these attributes to be used for the
+        saved data.
 
     Attributes taken from the particle data:
 
-      radius, graindensity, beta, age, origin, v_ej, r_i, v_i,
-      t_i, r_f, v_f, t_f, label
+        radius, graindensity, beta, age, origin, v_ej, r_i, v_i, t_i, r_f, v_f,
+        t_f, label
 
     Attributes generated on the fly:
 
-      s_ej - ejection speed [km/s]
-      s_i - initial speed [km/s]
-      s_f - final speed [km/s]
-      d_i - initial heliocentric distance [km]
-      d_f - final heliocentric distance [km]
-      d - target-particle distance [km]
-      rh_i - initial heliocentric distance [AU]
-      rh, rh_f - final heliocentric distance [AU]
-      r_c - comet heliocentric coordinates [km]
-      m - mass [g]
-      cs - cross section [cm^2]
-      xyz_heder - A header for XYZFile.
+        s_ej - ejection speed [km/s]
+
+        s_i - initial speed [km/s]
+
+        s_f - final speed [km/s]
+
+        d_i - initial heliocentric distance [km]
+
+        d_f - final heliocentric distance [km]
+
+        d - target-particle distance [km]
+
+        rh_i - initial heliocentric distance [AU]
+
+        rh, rh_f - final heliocentric distance [AU]
+
+        r_c - comet heliocentric coordinates [km]
+
+        m - mass [g]
+
+        cs - cross section [cm^2]
+
+        xyz_heder - A header for XYZFile.
 
     Attributes taken from `sky_coords` (see `Projection` for details):
 
-      lam, bet, dlam, dbet (from offset), theta, rho, phi, Delta
+        lam, bet, dlam, dbet (from offset), theta, rho, phi, Delta
 
     Attributes taken from `array_coords`: x, y
 

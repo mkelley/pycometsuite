@@ -107,43 +107,51 @@ class Instrument(object):
 
         """
         if len(self.axes) == 0:
-            self.shape = (0,)
+            self.bins = None
+            self.shape = ()
+            self.n = np.array(0.0)
+            self.data = np.array(0.0)
         else:
             if (bins is not None) or (range is not None):
                 self.bins = np.histogramdd(
                     np.zeros((1, self.ndim)), bins=bins, range=range
                 )[1]
             self.shape = tuple([len(x) - 1 for x in self.bins])
-        self.n = np.zeros(self.shape)
-        self.data = np.zeros(self.shape)
+            self.n = np.zeros(self.shape)
+            self.data = np.zeros(self.shape)
 
     def integrate(self, sim):
         """Collect data from a simulation."""
         v = []
-        for ax in self.axes:
-            if hasattr(ax, "__call__"):
-                v += [ax(sim)]
-            elif isinstance(ax, str):
-                if hasattr(sim, ax):
-                    v += [sim[ax]]
-                elif ax.startswith("func:"):
-                    v += [eval(ax[5:])]
+        if len(self.axes) != 0:
+            for ax in self.axes:
+                if hasattr(ax, "__call__"):
+                    v += [ax(sim)]
+                elif isinstance(ax, str):
+                    if hasattr(sim, ax):
+                        v += [sim[ax]]
+                    elif ax.startswith("func:"):
+                        v += [eval(ax[5:])]
+                    else:
+                        raise InvalidAxis(ax)
                 else:
                     raise InvalidAxis(ax)
-            else:
-                raise InvalidAxis(ax)
 
-            if len(v[-1]) != len(sim):
-                raise InvalidAxis(
-                    "Length of axis is {}, but was expected to be {}.".format(
-                        len(v[-1]), len(sim)
+                if len(v[-1]) != len(sim):
+                    raise InvalidAxis(
+                        "Length of axis is {}, but was expected to be {}.".format(
+                            len(v[-1]), len(sim)
+                        )
                     )
-                )
 
         w = self.scaler.scale(sim)
         n = self.normalizer.scale(sim)
-        self.n += np.histogramdd(v, bins=self.bins, weights=n)[0]
-        self.data += np.histogramdd(v, bins=self.bins, weights=w)[0]
+        if len(self.axes) == 0:
+            self.n += n.sum()
+            self.data += w.sum()
+        else:
+            self.n += np.histogramdd(v, bins=self.bins, weights=n)[0]
+            self.data += np.histogramdd(v, bins=self.bins, weights=w)[0]
 
 
 class Camera(Instrument):
