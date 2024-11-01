@@ -106,14 +106,14 @@ class Instrument(object):
           edges.
 
         """
-        if (bins is None) and (range is None):
-            # do nothing
-            pass
+        if len(self.axes) == 0:
+            self.shape = (0,)
         else:
-            self.bins = np.histogramdd(
-                np.zeros((1, self.ndim)), bins=bins, range=range
-            )[1]
-        self.shape = tuple([len(x) - 1 for x in self.bins])
+            if (bins is not None) or (range is not None):
+                self.bins = np.histogramdd(
+                    np.zeros((1, self.ndim)), bins=bins, range=range
+                )[1]
+            self.shape = tuple([len(x) - 1 for x in self.bins])
         self.n = np.zeros(self.shape)
         self.data = np.zeros(self.shape)
 
@@ -334,7 +334,7 @@ class Photometer(Instrument):
         Use this scaling function for computing the normalization array `n`.
 
     axes : array, optional
-        Additional axes to add to the camera.  See `Instrument` for details.
+        Additional data axes.  See `Instrument` for details.
 
     bins : array, optional
         Specify the bins for the additional axes.  See `Instrument` for details.
@@ -372,28 +372,7 @@ class Photometer(Instrument):
             bins = np.histogramdd(np.zeros((1, len(axes))), bins=bins, range=range)[1]
             _bins.extend(bins)
 
-        Instrument.__init__(
-            self, _axes, scaler=scaler, normalizer=normalizer, bins=_bins
-        )
-
-    def reset(self, bins=None, range=None):
-        """Initialize data arrays, optionally recomputing the bins.
-
-        Parameters
-        ----------
-        bins : int or array, optional
-            The number of bins or bin edges.
-
-        range : array, optional
-            When bins is an integer, use `range` as the left and right edges.
-
-        """
-        if (bins is not None) or (range is not None):
-            shape = (1,) + (len(self.axes),) if len(self.axes) > 0 else tuple()
-            self.bins = np.histogramdd(np.zeros(shape), bins=bins, range=range)[1]
-        self.shape = tuple([len(x) - 1 for x in self.bins])
-        self.n = np.zeros(self.shape)
-        self.data = np.zeros(self.shape)
+        super().__init__(_axes, scaler=scaler, normalizer=normalizer, bins=_bins)
 
     def integrate(self, sim):
         i = sim.theta < self.rap
