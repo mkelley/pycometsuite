@@ -5,8 +5,10 @@ cometsuite
 Cometary dust dynamics simulator.
 
 .. toctree::
-   :maxdepth: 2
-   :caption: Contents:
+    :maxdepth: 2
+    :caption: Contents:
+
+    instruments
 
 Quick start
 ===========
@@ -108,7 +110,7 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> #   - sizes from 0.1 μm to 1 mm
     >>> #   - isotropic dust production from a point source nucleus
     >>> #   - speed = 0.3 rh**-0.5 a**-0.5 (km / s)
-    >>> # generate 20,000 particles
+    >>> # generate 2,000 particles
     >>> 
     >>> pgen = cs.Coma(comet, date)
     >>> pgen.composition = cs.Geometric(rho0=1)
@@ -139,11 +141,12 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
 
     The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
 
-Cometsuite
-==========
+.. Cometsuite
+.. ==========
 
-.. automodapi:: cometsuite.simulation
-    :no-heading:
+.. .. automodapi:: cometsuite
+..     :no-heading:
+..     :headings: =-
 
 Indices and tables
 ==================

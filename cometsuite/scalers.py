@@ -3,7 +3,7 @@ scalers - Scale factors based on particle parameters.
 =====================================================
 
 Note: When new scalers are added, those that may be used by
-`ParticleGenerator`s should also be added to `ParticleGenerator.reset`.
+`ParticleGenerator` should also be added to `ParticleGenerator.reset` .
 
 
 Classes

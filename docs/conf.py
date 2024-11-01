@@ -16,6 +16,7 @@ author = "Michael S. P. Kelley"
 extensions = [
     "matplotlib.sphinxext.plot_directive",
     "sphinx_automodapi.automodapi",
+    'sphinx_automodapi.smart_resolver',
     "numpydoc",
 ]
 
