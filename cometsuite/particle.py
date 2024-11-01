@@ -530,7 +530,7 @@ class AmorphousCarbon(Composition):
     """
 
     name = "amorphous carbon"
-    rho = 1.5
+    rho0 = 1.5
 
     def __init__(self):
         from . import __path__
