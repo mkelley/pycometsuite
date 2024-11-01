@@ -124,24 +124,26 @@ class Scaler(object):
 class CompositeScaler(Scaler):
     """A collection of multiple scale factors.
 
-    To create a `CompositeScaler`:
+    To create a `CompositeScaler`::
 
-      total_scale = CompositeScaler(SpeedRh(), SpeedRadius())
-      total_scale = SpeedRh() * SpeedRadius()
+        total_scale = CompositeScaler(SpeedRh(), SpeedRadius())
+        total_scale = SpeedRh() * SpeedRadius()
 
     To remove the `SpeedRh` scale::
 
-      del total_scale.scales[0]
+        del total_scale.scales[0]
 
-    Length-one `CompositeScaler`s may also be created:
+    A length-one `CompositeScaler` may also be created::
 
-      s = CompositeScaler(SpeedRh())
-      s = SpeedRh() * UnityScaler()
+        s = CompositeScaler(SpeedRh())
+        s = SpeedRh() * UnityScaler()
 
 
     Raises
     ------
     InvalidScaler
+        If a scaler is not an instance of `Scaler`, `CompositeScaler`, `float`,
+        or `int`.
 
     """
 
@@ -965,15 +967,15 @@ class ScatteredLight(Scaler):
 
     def __init__(self, wave, unit=u.Unit('W/(m2 um)')):
         self.unit = unit
-        self.wave = wave
+        self.wave = wave.to("um")
 
     def __str__(self):
-        return 'ScatteredLight({} * {}, unit={})'.format(str(self.wave.value), repr(self.wave.unit), repr(self.unit))
+        return 'ScatteredLight(Quantity("{}"), unit={})'.format(str(self.wave), repr(self.unit))
 
     def scale(self, p):
         from mskpy.calib import solar_flux
         Q = np.ones_like(p.radius)
-        k = self.wave / 2 / np.pi
+        k = self.wave.value / 2 / np.pi
         i = p.radius < k
         if any(i):
             Q[i] = (p.radius[i] / k)**4
@@ -1069,7 +1071,7 @@ class SpeedRadius(Scaler):
 
 
 class SpeedRh(Scaler):
-    """Speed scale factor based on |r_i|.
+    """Speed scale factor based on :math:`|r_i|`.
 
     For `rh` measured in AU::
 
@@ -1079,10 +1081,10 @@ class SpeedRh(Scaler):
     Parameters
     ----------
     k : float, optional
-      Power-law exponent.
+        Power-law exponent.
 
     rh0 : float, optional
-      Normalization distance.
+        Normalization distance.
 
 
     Methods
@@ -1171,29 +1173,28 @@ class ThermalEmission(Scaler):
 
       Qem * sigma * B / Delta**2
 
-    where `sigma` is the cross-sectional area of the grain, and `S` is
-    the solar flux.  The scattering efficiency is::
+    where `sigma` is the cross-sectional area of the grain, and `S` is the solar
+    flux.  The scattering efficiency is::
 
-      Qem = 2 * pi * a / wave  for a < wave / 2 / pi
-      Qem = 1.0                for a >= wave / 2 / pi
+      Qem = 2 * pi * a / wave  for a < wave / 2 / pi Qem = 1.0 for a >= wave / 2
+      / pi
 
 
     Parameters
     ----------
     wave : float
-      Wavelength of the light. [micrometers]
+        Wavelength of the light. [micrometers]
 
     unit : astropy Unit, optional
-      The flux density units of the scale factor.
+        The flux density units of the scale factor.
 
     composition : Composition, optional
-      Use this composition, rather than anything specified in the
-      simluation.
+        Use this composition, rather than anything specified in the simulation.
 
     require_grain_model : bool, optional
-      If `True`, and a grain temperature model cannot be found, throw
-      an exception.  If `False`, use a blackbody temperature as a
-      fail-safe model.
+        If `True`, and a grain temperature model cannot be found, throw an
+        exception.  If `False`, use a blackbody temperature as a fail-safe
+        model.
 
 
     Methods
@@ -1288,22 +1289,21 @@ def flux_scaler(Qd=0, psd='a^-3.5', thermal=24, scattered=-1, log_bias=True):
     Parameters
     ----------
     Qd : float, optional
-      Specify `k` in `QRh(k)`.
+        Specify `k` in `QRh(k)`.
 
     psd : string, optional
-      Particle size distribution, one of 'ism', 'a^k', or
-      'hanner a0 N ap'.
+        Particle size distribution, one of 'ism', 'a^k', or 'hanner a0 N ap'.
 
     thermal : float, optional
-      Wavelength of the thermal emission.  Set to <= 0 to
-      disable. [micrometers]
+        Wavelength of the thermal emission.  Set to <= 0 to disable.
+        [micrometers]
 
     scattered : float, optional
-      Wavelength of the scattered light.  Set to <= 0 to
-      disable. [micrometers]
+        Wavelength of the scattered light.  Set to <= 0 to disable.
+        [micrometers]
 
     log_bias : bool, optional
-      If `True`, include `PSD_RemoveLogBias` in the scaler.
+        If `True`, include `PSD_RemoveLogBias` in the scaler.
 
 
     Returns
@@ -1351,24 +1351,24 @@ def mass_calibrate(Q0, scaler, params, n=None):
     Parameters
     ----------
     Q0 : Quantity
-      The dust production rate (mass per time) at time of observation.
+        The dust production rate (mass per time) at time of observation.
 
     scaler : Scaler or CompositeScaler
-      The simluation scale factors.
+        The simulation scale factors.
 
     params : dict
-      The parameters of the simulation.
+        The parameters of the simulation.
 
     n : int, optional
-      The number of particles in the simulation.  The default is to
-      use `params['nparticles']`, but this may not always be desired.
+        The number of particles in the simulation.  The default is to use
+        `params['nparticles']`, but this may not always be desired.
 
 
     Returns
     -------
     calib : float
-      The calibration factor for the simulation to place simulation
-      particles in units of coma particles.
+        The calibration factor for the simulation to place simulation particles
+        in units of coma particles.
 
 
     Notes
