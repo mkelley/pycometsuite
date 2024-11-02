@@ -49,30 +49,30 @@ mass_calibrate
 """
 
 __all__ = [
-    'Scaler',
-    'CompositeScaler',
-    'ActiveArea',
-    'Angle',
-    'ConstantFactor',
-    'FractalPorosity',
-    'GaussianActiveArea',
-    'ParameterWeight',
-    'PSD_Hanner',
-    'PSD_BrokenPowerLaw',
-    'PSD_PowerLawLargeScaled',
-    'PSD_PowerLaw',
-    'PSD_RemoveLogBias',
-    'QRh',
-    'QRhDouble',
-    'ScatteredLight',
-    'SpeedLimit',
-    'SpeedRadius',
-    'SpeedRh',
-    'SunCone',
-    'SunSpeedAngle',
-    'ThermalEmission',
-    'UnityScaler',
-    'flux_scaler'
+    "Scaler",
+    "CompositeScaler",
+    "ActiveArea",
+    "Angle",
+    "ConstantFactor",
+    "FractalPorosity",
+    "GaussianActiveArea",
+    "ParameterWeight",
+    "PSD_Hanner",
+    "PSD_BrokenPowerLaw",
+    "PSD_PowerLawLargeScaled",
+    "PSD_PowerLaw",
+    "PSD_RemoveLogBias",
+    "QRh",
+    "QRhDouble",
+    "ScatteredLight",
+    "SpeedLimit",
+    "SpeedRadius",
+    "SpeedRh",
+    "SunCone",
+    "SunSpeedAngle",
+    "ThermalEmission",
+    "UnityScaler",
+    "flux_scaler",
 ]
 
 from copy import copy
@@ -109,7 +109,7 @@ class Scaler(object):
         return str(self)
 
     def __str__(self):
-        return '<Scaler>'
+        return "<Scaler>"
 
     def copy(self):
         return copy(self)
@@ -182,7 +182,7 @@ class CompositeScaler(Scaler):
         if len(self.scales) == 0:
             return str(UnityScaler())
         else:
-            return ' * '.join([str(s) for s in self.scales])
+            return " * ".join([str(s) for s in self.scales])
 
     def formula(self):
         return [s.formula() for s in self.scales]
@@ -196,14 +196,14 @@ class CompositeScaler(Scaler):
     def scale_a(self, a):
         c = 1.0
         for s in self.scales:
-            if hasattr(s, 'scale_a'):
+            if hasattr(s, "scale_a"):
                 c = c * s.scale_a(a)
         return c
 
     def scale_rh(self, rh):
         c = 1.0
         for s in self.scales:
-            if hasattr(s, 'scale_rh'):
+            if hasattr(s, "scale_rh"):
                 c = c * s.scale_rh(rh)
         return c
 
@@ -248,25 +248,23 @@ class ActiveArea(Scaler):
         self.w = w
         self.ll = list(ll)
         self.func = func
-        if func == 'sin':
+        if func == "sin":
             self.f = np.sin
-        elif func == 'sin2':
-            self.f = lambda th: np.sin(th)**2
-        elif func == 'cos':
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "cos":
             self.f = np.cos
-        elif func == 'cos2':
-            self.f = lambda th: np.cos(th)**2
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
         else:
             self.f = lambda th: 1
 
         # active area normal vector
         a = np.radians(self.ll)
-        self.normal = np.array(
-            spherical_to_cartesian(1.0, a[1], a[0]))
+        self.normal = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
 
     def __str__(self):
-        return 'ActiveArea({}, {}, func="{}")'.format(
-            self.w, self.ll, self.func)
+        return 'ActiveArea({}, {}, func="{}")'.format(self.w, self.ll, self.func)
 
     def scale(self, p):
         th = util.angle_between(self.normal, p.v_ej)
@@ -305,35 +303,41 @@ class ActiveAreaOld(Scaler):
         self.ll = list(ll)
         self.pole = list(pole)
         self.func = func
-        if func == 'sin':
+        if func == "sin":
             self.f = np.sin
-        elif func == 'sin2':
-            self.f = lambda th: np.sin(th)**2
-        elif func == 'cos':
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "cos":
             self.f = np.cos
-        elif func == 'cos2':
-            self.f = lambda th: np.cos(th)**2
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
         else:
             self.f = lambda th: 1
 
         # pole and origin unit vector
         a = np.radians(self.pole)
-        self.pole_unit = np.array(
-            spherical_to_cartesian(1.0, a[1], a[0]))
+        self.pole_unit = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
 
         # active area normal vector
         pi = np.pi
         print(
-            'WARNING: spherical rot must be fixed after final 243P sims (tag old version)')
+            "WARNING: spherical rot must be fixed after final 243P sims (tag old version)"
+        )
         # need to rotate pole in the same way that 0,pi/2 is rotated to match ll : use vector_rotate
-        o = util.spherical_rot(np.radians(pole[0]), np.radians(pole[1]),
-                               0, pi / 2,
-                               np.radians(ll[0]), np.radians(ll[1]))
+        o = util.spherical_rot(
+            np.radians(pole[0]),
+            np.radians(pole[1]),
+            0,
+            pi / 2,
+            np.radians(ll[0]),
+            np.radians(ll[1]),
+        )
         self.normal = util.lb2xyz(*o)
 
     def __str__(self):
         return 'ActiveAreaOld({}, {}, {}, func="{}")'.format(
-            self.w, self.ll, self.pole, self.func)
+            self.w, self.ll, self.pole, self.func
+        )
 
     def scale(self, p):
         if len(p) > 1:
@@ -373,42 +377,43 @@ class Angle(Scaler):
         self.bet = bet
         self.normal = util.lb2xyz(np.radians(lam), np.radians(bet))
         self.func = func
-        if func == 'sin':
+        if func == "sin":
             self.f = np.sin
-        elif func == 'sin2':
-            self.f = lambda th: np.sin(th)**2
-        elif func == 'sin4':
-            self.f = lambda th: np.sin(th)**4
-        elif func == 'sin(th/2)':
-            self.f = lambda th: np.sin(th/2)
-        elif func == 'sin2(th/2)':
-            self.f = lambda th: np.sin(th/2)**2
-        elif func == 'sin4(th/2)':
-            self.f = lambda th: np.sin(th/2)**4
-        elif func == 'sin(th<90)':
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "sin4":
+            self.f = lambda th: np.sin(th) ** 4
+        elif func == "sin(th/2)":
+            self.f = lambda th: np.sin(th / 2)
+        elif func == "sin2(th/2)":
+            self.f = lambda th: np.sin(th / 2) ** 2
+        elif func == "sin4(th/2)":
+            self.f = lambda th: np.sin(th / 2) ** 4
+        elif func == "sin(th<90)":
             self.f = self.sin_th_lt_90
-        elif func == 'sin2(th<90)':
+        elif func == "sin2(th<90)":
             self.f = self.sin2_th_lt_90
-        elif func == 'cos':
+        elif func == "cos":
             self.f = np.cos
-        elif func == 'cos2':
-            self.f = lambda th: np.cos(th)**2
-        elif func == 'cos4':
-            self.f = lambda th: np.cos(th)**4
-        elif func == 'cos(th/2)':
-            self.f = lambda th: np.cos(th/2)
-        elif func == 'cos2(th/2)':
-            self.f = lambda th: np.cos(th/2)**2
-        elif func == 'cos4(th/2)':
-            self.f = lambda th: np.cos(th/2)**4
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
+        elif func == "cos4":
+            self.f = lambda th: np.cos(th) ** 4
+        elif func == "cos(th/2)":
+            self.f = lambda th: np.cos(th / 2)
+        elif func == "cos2(th/2)":
+            self.f = lambda th: np.cos(th / 2) ** 2
+        elif func == "cos4(th/2)":
+            self.f = lambda th: np.cos(th / 2) ** 4
         else:
-            raise ValueError('func must be sin or cos.')
+            raise ValueError("func must be sin or cos.")
         self.c1 = scale
         self.c0 = const
 
     def __str__(self):
         return 'Angle({}, {}, "{}", {}, const={})'.format(
-            self.lam, self.bet, self.func, self.c1, self.c0)
+            self.lam, self.bet, self.func, self.c1, self.c0
+        )
 
     @staticmethod
     def sin_th_lt_90(th):
@@ -420,7 +425,7 @@ class Angle(Scaler):
     @staticmethod
     def sin2_th_lt_90(th):
         """sin2(th) for th < 90 deg, else 1.0"""
-        f = np.sin(th)**2
+        f = np.sin(th) ** 2
         f[th > (np.pi / 2)] = 1.0
         return f
 
@@ -433,7 +438,7 @@ class Angle(Scaler):
 class SpeedAngle(Angle):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        raise DeprecationWarning('SpeedAngle depricated; use Angle')
+        raise DeprecationWarning("SpeedAngle depricated; use Angle")
 
 
 class ConstantFactor(Scaler):
@@ -443,7 +448,7 @@ class ConstantFactor(Scaler):
         self.c = c
 
     def __str__(self):
-        return 'ConstantFactor({})'.format(self.c)
+        return "ConstantFactor({})".format(self.c)
 
     def formula(self):
         return r"$C = {:.3g}$".format(self.c)
@@ -482,13 +487,13 @@ class FractalPorosity(Scaler):
         self.a0 = a0
 
     def __str__(self):
-        return 'FractalPorosity(D={}, a0={})'.format(self.D, self.a0)
+        return "FractalPorosity(D={}, a0={})".format(self.D, self.a0)
 
     def formula(self):
         return r"$P = (a / a_0)^{{D-{:.3f}}}$".format(self.a0, self.D)
 
     def scale(self, p):
-        return (p.radius / self.a0)**(self.D - 3.0)
+        return (p.radius / self.a0) ** (self.D - 3.0)
 
 
 class GaussianActiveArea(ActiveArea):
@@ -525,8 +530,9 @@ class GaussianActiveArea(ActiveArea):
         self.sig = sig
 
     def __str__(self):
-        return 'GaussianActiveArea({}, {}, {}, {})'.format(
-            self.w, self.sig, self.ll, self.pole)
+        return "GaussianActiveArea({}, {}, {}, {})".format(
+            self.w, self.sig, self.ll, self.pole
+        )
 
     def scale(self, p):
         th = util.angle_between(self.normal, p.v_ej)
@@ -603,23 +609,28 @@ class PSD_Hanner(PSDScaler):
         self.Np = 1
 
         if (M is None) and (ap is None):
-            raise ValueError('One of M or ap must be provided.')
+            raise ValueError("One of M or ap must be provided.")
         elif M is None:
             self.M = (self.ap / self.a0 - 1) * self.N
         else:
             self.ap = self.a0 * (self.M + self.N) / self.N
 
     def __str__(self):
-        return 'PSD_Hanner({}, {}, M={}, ap={}, Np={})'.format(
-            self.a0, self.N, self.M, self.ap, self.Np)
+        return "PSD_Hanner({}, {}, M={}, ap={}, Np={})".format(
+            self.a0, self.N, self.M, self.ap, self.Np
+        )
 
     def formula(self):
         return r"dn/da = {Np:.3g} (1 - {a0:.2g} / a)^M ({a0:.2g} / a)^N".format(
-            a0=self.a0, N=self.N, M=self.M, Np=self.Np)
+            a0=self.a0, N=self.N, M=self.M, Np=self.Np
+        )
 
     def scale(self, p):
-        return (self.Np * (1 - self.a0 / p.radius)**self.M
-                * (self.a0 / p.radius)**self.N)
+        return (
+            self.Np
+            * (1 - self.a0 / p.radius) ** self.M
+            * (self.a0 / p.radius) ** self.N
+        )
 
 
 class PSD_BrokenPowerLaw(PSDScaler):
@@ -656,15 +667,17 @@ class PSD_BrokenPowerLaw(PSDScaler):
         self.M = M
         self.N1 = N1
         self._small_psd = PSD_PowerLaw(N, N1)
-        self._large_psd = PSD_PowerLaw(M, N1 * a0**(N - M))
+        self._large_psd = PSD_PowerLaw(M, N1 * a0 ** (N - M))
 
     def __str__(self):
-        return 'PSD_BrokenPowerLaw({}, {}, {}, N1={})'.format(
-            self.N, self.a0, self.M, self.N1)
+        return "PSD_BrokenPowerLaw({}, {}, {}, N1={})".format(
+            self.N, self.a0, self.M, self.N1
+        )
 
     def formula(self):
-        return (r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = {:.3g}\times\,a^{{{:.1f}}}$"
-                .format(self.N1, self.N, self.a0, self._large_psd.N1, self.M))
+        return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = {:.3g}\times\,a^{{{:.1f}}}$".format(
+            self.N1, self.N, self.a0, self._large_psd.N1, self.M
+        )
 
     def scale(self, p):
         return self.scale_a(p.radius)
@@ -719,12 +732,14 @@ class PSD_PowerLawLargeScaled(PSDScaler):
         self.N1 = N1
 
     def __str__(self):
-        return 'PSD_PowerLawLargeScaled({}, {}, {}, N1={})'.format(
-            self.N, self.a0, self.scale_factor, self.N1)
+        return "PSD_PowerLawLargeScaled({}, {}, {}, N1={})".format(
+            self.N, self.a0, self.scale_factor, self.N1
+        )
 
     def formula(self):
-        return (r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = dn/da \times {:.3g}$"
-                .format(self.N1, self.a0, self.scale_factor, self.N))
+        return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = dn/da \times {:.3g}$".format(
+            self.N1, self.a0, self.scale_factor, self.N
+        )
 
     def scale(self, p):
         return self.scale_a(p.radius)
@@ -766,11 +781,10 @@ class PSD_PowerLaw(PSDScaler):
         self.N1 = N1
 
     def __str__(self):
-        return 'PSD_PowerLaw({}, N1={})'.format(self.N, self.N1)
+        return "PSD_PowerLaw({}, N1={})".format(self.N, self.N1)
 
     def formula(self):
-        return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$".format(
-            self.N1, self.N)
+        return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$".format(self.N1, self.N)
 
     def scale(self, p):
         return self.scale_a(p.radius)
@@ -808,8 +822,7 @@ class PSD_RemoveLogBias(PSDScaler):
         self.aminmax = aminmax
 
     def __str__(self):
-        return 'PSD_RemoveLogBias(Nt={}, aminmax={})'.format(
-            self.Nt, self.aminmax)
+        return "PSD_RemoveLogBias(Nt={}, aminmax={})".format(self.Nt, self.aminmax)
 
     def formula(self):
         return r"dn/da_{{correction}} = {:.3g} a".format(self.N0)
@@ -867,7 +880,7 @@ class QRh(ProductionRateScaler):
         self.k = k
 
     def __str__(self):
-        return 'QRh({})'.format(self.k)
+        return "QRh({})".format(self.k)
 
     def formula(self):
         return (r"$Q \propto r_h^{{{}}}$").format(self.k)
@@ -917,22 +930,22 @@ class QRhDouble(ProductionRateScaler):
         self.rh0 = rh0
 
     def __str__(self):
-        return 'QRhDouble({}, {}, {}, {})'.format(self.k1, self.k2,
-                                                  self.k12, self.rh0)
+        return "QRhDouble({}, {}, {}, {})".format(self.k1, self.k2, self.k12, self.rh0)
 
     def formula(self):
-        return (r"""$Q \propto r_h^{{{}}}$ for $r_h < {}$ AU
-$Q \propto r_h^{{{}}}$ for $r_h > {}$ AU""").format(self.k1, self.rh0,
-                                                    self.k2, self.rh0)
+        return (
+            r"""$Q \propto r_h^{{{}}}$ for $r_h < {}$ AU
+$Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
+        ).format(self.k1, self.rh0, self.k2, self.rh0)
 
     def scale(self, p):
         return self.scale_rh(p.rh_i)
 
     def scale_rh(self, rh):
-        alpha = ((self.k1 - self.k2) / self.k12)
+        alpha = (self.k1 - self.k2) / self.k12
         sc = 2**-alpha
-        sc = sc * (rh / self.rh0)**self.k2
-        sc = sc * (1 + (rh / self.rh0)**self.k12)**alpha
+        sc = sc * (rh / self.rh0) ** self.k2
+        sc = sc * (1 + (rh / self.rh0) ** self.k12) ** alpha
         return sc
 
 
@@ -941,7 +954,7 @@ class ScatteredLight(Scaler):
 
     The scale factor is::
 
-      Qsca * sigma * S / rh / Delta**2
+      Qsca * sigma * S / rh**2 / Delta**2
 
     where `sigma` is the cross-sectional area of the grain, and `S` is
     the solar flux.  The scattering efficiency is::
@@ -965,21 +978,24 @@ class ScatteredLight(Scaler):
 
     """
 
-    def __init__(self, wave, unit=u.Unit('W/(m2 um)')):
+    def __init__(self, wave, unit=u.Unit("W/(m2 um)")):
         self.unit = unit
         self.wave = wave.to("um")
 
     def __str__(self):
-        return 'ScatteredLight(Quantity("{}"), unit={})'.format(str(self.wave), repr(self.unit))
+        return 'ScatteredLight(Quantity("{}"), unit={})'.format(
+            str(self.wave), repr(self.unit)
+        )
 
     def scale(self, p):
         from mskpy.calib import solar_flux
+
         Q = np.ones_like(p.radius)
         k = self.wave.value / 2 / np.pi
         i = p.radius < k
         if any(i):
-            Q[i] = (p.radius[i] / k)**4
-        sigma = np.pi * (p.radius * 1e-9)**2  # km**2
+            Q[i] = (p.radius[i] / k) ** 4
+        sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
         S = solar_flux(self.wave, unit=self.unit).value  # at 1 AU
         return Q * sigma * S / p.rh_f**2 / p.Delta**2
 
@@ -1021,8 +1037,9 @@ class SpeedLimit(Scaler):
             self.scalers = scalers
 
     def __str__(self):
-        return 'SpeedLimit(smin={}, smax={}, scalers={})'.format(
-            self.smin, self.smax, self.scalers)
+        return "SpeedLimit(smin={}, smax={}, scalers={})".format(
+            self.smin, self.smax, self.scalers
+        )
 
     def scale(self, p):
         s = p.s_ej / self.scalers.scale(p)
@@ -1064,10 +1081,10 @@ class SpeedRadius(Scaler):
         self.a0 = a0
 
     def __str__(self):
-        return 'SpeedRadius(k={}, a0={})'.format(self.k, self.a0)
+        return "SpeedRadius(k={}, a0={})".format(self.k, self.a0)
 
     def scale(self, p):
-        return (p.radius / self.a0)**self.k
+        return (p.radius / self.a0) ** self.k
 
 
 class SpeedRh(Scaler):
@@ -1098,14 +1115,14 @@ class SpeedRh(Scaler):
         self.rh0 = rh0
 
     def __str__(self):
-        return 'SpeedRh(k={}, rh0={})'.format(self.k, self.rh0)
+        return "SpeedRh(k={}, rh0={})".format(self.k, self.rh0)
 
     def scale(self, p):
         if len(p) == 1:
             rh = np.sqrt(np.sum(p.r_i**2)) / 149597870.69
         else:
             rh = np.sqrt(np.sum(p.r_i**2, 1)) / 149597870.69
-        return (rh / self.rh0)**self.k
+        return (rh / self.rh0) ** self.k
 
 
 class SunCone(Scaler):
@@ -1128,7 +1145,7 @@ class SunCone(Scaler):
         self.w = w
 
     def __str__(self):
-        return 'SunCone({})'.format(self.w)
+        return "SunCone({})".format(self.w)
 
     def scale(self, p):
         th = util.angle_between(-p.r_i, p.v_ej)
@@ -1159,7 +1176,8 @@ class SunSpeedAngle(SpeedAngle):
 
     def __str__(self):
         return 'SunSpeedAngle("{}", {}, const={})'.format(
-            self.func, self.speed_scale, self.const)
+            self.func, self.speed_scale, self.const
+        )
 
     def scale(self, p):
         self.r = (-p.r_i.T / util.magnitude(p.r_i)).T
@@ -1203,37 +1221,46 @@ class ThermalEmission(Scaler):
 
     """
 
-    def __init__(self, wave, unit=u.Unit('W/(m2 um)'),
-                 composition=None, require_grain_model=False):
+    def __init__(
+        self,
+        wave,
+        unit=u.Unit("W/(m2 um)"),
+        composition=None,
+        require_grain_model=False,
+    ):
         self.unit = unit
         self.wave = wave
         self.composition = composition
         self.require_grain_model = require_grain_model
-        print('ThermalEmission is assuming solid grains at the median rh')
+        print("ThermalEmission is assuming solid grains at the median rh")
 
     def __str__(self):
-        return (('ThermalEmission({}, unit={}, composition={}, '
-                 'require_grain_model={})'
-                 ).format(self.wave, repr(self.unit), str(self.composition),
-                          self.require_grain_model))
+        return (
+            "ThermalEmission({}, unit={}, composition={}, " "require_grain_model={})"
+        ).format(
+            self.wave, repr(self.unit), str(self.composition), self.require_grain_model
+        )
 
     def scale(self, p):
         from mskpy.util import planck
         from . import particle
 
-        gtm_filename = {'amorphouscarbon': 'am-carbon.fits',
-                        'amorphousolivine50': 'am-olivine50.fits'}
+        gtm_filename = {
+            "amorphouscarbon": "am-carbon.fits",
+            "amorphousolivine50": "am-olivine50.fits",
+        }
 
         if self.composition is None:
-            composition = p.params['pfunc']['composition'].split('(')[0]
+            composition = p.params["pfunc"]["composition"].split("(")[0]
         else:
-            composition = str(self.composition).split('(')[0]
+            composition = str(self.composition).split("(")[0]
         composition = composition.lower().strip()
 
         if composition in gtm_filename:
             from dust import readgtm, gtmInterp
             from scipy import interpolate
             from scipy.interpolate import splrep, splev
+
             gtm = readgtm(gtm_filename[composition])
             T = np.zeros_like(p.radius)
             rh = np.median(p.rh_f)
@@ -1257,14 +1284,14 @@ class ThermalEmission(Scaler):
             if self.require_grain_model:
                 raise MissingGrainModel
 
-            T = 278. / np.sqrt(p.rh_f)
+            T = 278.0 / np.sqrt(p.rh_f)
 
         Q = np.ones_like(p.radius)
         k = self.wave / 2 / np.pi
         i = p.radius < k
         if any(i):
             Q[i] = p.radius[i] / k
-        sigma = np.pi * (p.radius * 1e-9)**2  # km**2
+        sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
         B = planck(self.wave, T, unit=self.unit / u.sr)
         return Q * sigma * B / p.Delta**2
 
@@ -1276,13 +1303,13 @@ class UnityScaler(Scaler):
         pass
 
     def __str__(self):
-        return 'UnityScaler()'
+        return "UnityScaler()"
 
     def scale(self, p):
         return np.ones(len(p))
 
 
-def flux_scaler(Qd=0, psd='a^-3.5', thermal=24, scattered=-1, log_bias=True):
+def flux_scaler(Qd=0, psd="a^-3.5", thermal=24, scattered=-1, log_bias=True):
     """Weight a comet simulation with commonly used scalers.
 
 
@@ -1313,11 +1340,11 @@ def flux_scaler(Qd=0, psd='a^-3.5', thermal=24, scattered=-1, log_bias=True):
     """
 
     psd = psd.lower().strip()
-    if psd == 'ism':
+    if psd == "ism":
         psd_scaler = PSD_PowerLaw(-3.5)
-    elif psd[0] == 'a':
+    elif psd[0] == "a":
         psd_scaler = PSD_PowerLaw(float(psd[2:]))
-    elif psd.startswith('hanner'):
+    elif psd.startswith("hanner"):
         a0, N, ap = [float(x) for x in psd.split()[1:]]
         psd_scaler = PSD_Hanner(a0, N, ap=ap)
     else:
@@ -1399,15 +1426,15 @@ def mass_calibrate(Q0, scaler, params, n=None):
     Q0 = Q0.to(u.kg / u.s)
 
     if n is None:
-        n = params['nparticles']
+        n = params["nparticles"]
 
-    if not params['pfunc']['age'].startswith('Uniform('):
-        raise ValueError('Uniform particle generator required.')
+    if not params["pfunc"]["age"].startswith("Uniform("):
+        raise ValueError("Uniform particle generator required.")
 
-    gen = eval('csg.' + params['pfunc']['age'])
+    gen = eval("csg." + params["pfunc"]["age"])
     trange_sim = np.array((gen.min(), gen.max()))
 
-    gen = eval('csg.' + params['pfunc']['radius'])
+    gen = eval("csg." + params["pfunc"]["radius"])
     arange_sim = np.array((gen.min(), gen.max()))
 
     # search scaler for production rate scalers
@@ -1415,8 +1442,7 @@ def mass_calibrate(Q0, scaler, params, n=None):
     if isinstance(scaler, ProductionRateScaler):
         Q *= scaler
     elif isinstance(scaler, CompositeScaler):
-        s = [sc for sc in scaler.scales
-             if isinstance(sc, ProductionRateScaler)]
+        s = [sc for sc in scaler.scales if isinstance(sc, ProductionRateScaler)]
         Q *= CompositeScaler(*s)
 
     # search for PSD scalers
@@ -1428,25 +1454,26 @@ def mass_calibrate(Q0, scaler, params, n=None):
         PSD *= CompositeScaler(*s)
 
     # derive density
-    comp = eval('csp.' + params['pfunc']['composition'])
-    rho = eval(params['pfunc']['density_scale']) * comp.rho0
+    comp = eval("csp." + params["pfunc"]["composition"])
+    rho = eval(params["pfunc"]["density_scale"]) * comp.rho0
 
-    if params['comet']['kernel'] == 'None':
+    if params["comet"]["kernel"] == "None":
         kernel = None
     else:
-        kernel = params['comet']['kernel']
+        kernel = params["comet"]["kernel"]
 
-    comet = getspiceobj(params['comet']['name'], kernel=kernel)
-    t0 = cal2time(params['date'])
+    comet = getspiceobj(params["comet"]["name"], kernel=kernel)
+    t0 = cal2time(params["date"])
 
     # normalize to Q0 at t0
     r = comet.r(t0)
     rh = np.sqrt(np.dot(r, r)) / 1.495978707e8
-    Q *= Q0.to('kg/s').value / Q.scale_rh(rh)
+    Q *= Q0.to("kg/s").value / Q.scale_rh(rh)
 
     def mass(a):
         # a in um, mass in kg
         from numpy import pi
+
         # m = 4/3. * pi * (a * 1e-4)**3
         m = 4 / 3 * pi * a**3 * 1e-12
         m *= rho.scale(csp.Particle(radius=a)) * 1e-3
@@ -1459,7 +1486,6 @@ def mass_calibrate(Q0, scaler, params, n=None):
         rh = np.sqrt(np.dot(r, r)) / 1.495978707e8
         return Q.scale_rh(rh)
 
-    m_p = (quad(mass, *arange_sim)[0]
-           / quad(PSD.scale_a, *arange_sim)[0]**-1) * u.kg
+    m_p = (quad(mass, *arange_sim)[0] / quad(PSD.scale_a, *arange_sim)[0] ** -1) * u.kg
     M = quad(production_rate, *trange_sim)[0] * u.kg * u.day / u.s
     return (M / (m_p * n)).to(u.dimensionless_unscaled).value
