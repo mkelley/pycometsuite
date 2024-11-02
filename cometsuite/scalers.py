@@ -79,6 +79,7 @@ from copy import copy
 import numpy as np
 import astropy.units as u
 from astropy.coordinates import spherical_to_cartesian
+from sbpy.calib import Sun
 from . import util
 
 
@@ -982,20 +983,22 @@ class ScatteredLight(Scaler):
         self.unit = unit
         self.wave = wave
 
+        sun = Sun.from_default()
+        # a little wavelength averaging to mitigate absorption line issues
+        w = np.r_[0.95, 1.0, 1.05] * wave * u.um
+        self.S = sun(w, unit=self.unit).value[1]  # at 1 AU
+
     def __str__(self):
         return "ScatteredLight({}, unit={})".format(self.wave, repr(self.unit))
 
     def scale(self, p):
-        from mskpy.calib import solar_flux
-
         Q = np.ones_like(p.radius)
         k = self.wave / 2 / np.pi
         i = p.radius < k
         if any(i):
             Q[i] = (p.radius[i] / k) ** 4
         sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
-        S = solar_flux(self.wave * u.um, unit=self.unit).value  # at 1 AU
-        return Q * sigma * S / p.rh_f**2 / p.Delta**2
+        return Q * sigma * self.S / p.rh_f**2 / p.Delta**2
 
 
 class SpeedLimit(Scaler):
