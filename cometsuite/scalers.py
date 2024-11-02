@@ -954,13 +954,13 @@ class ScatteredLight(Scaler):
 
     The scale factor is::
 
-      Qsca * sigma * S / rh**2 / Delta**2
+        Qsca * sigma * S / rh**2 / Delta**2
 
     where `sigma` is the cross-sectional area of the grain, and `S` is
     the solar flux.  The scattering efficiency is::
 
-      Qsca = (2 * pi * a / wave)**4  for a < wave / 2 / pi
-      Qsca = 1.0                     for a >= wave / 2 / pi
+        Qsca = (2 * pi * a / wave)**4  for a < wave / 2 / pi
+        Qsca = 1.0                     for a >= wave / 2 / pi
 
 
     Parameters
@@ -980,23 +980,21 @@ class ScatteredLight(Scaler):
 
     def __init__(self, wave, unit=u.Unit("W/(m2 um)")):
         self.unit = unit
-        self.wave = wave.to("um")
+        self.wave = wave
 
     def __str__(self):
-        return 'ScatteredLight(Quantity("{}"), unit={})'.format(
-            str(self.wave), repr(self.unit)
-        )
+        return "ScatteredLight({}, unit={})".format(self.wave, repr(self.unit))
 
     def scale(self, p):
         from mskpy.calib import solar_flux
 
         Q = np.ones_like(p.radius)
-        k = self.wave.value / 2 / np.pi
+        k = self.wave / 2 / np.pi
         i = p.radius < k
         if any(i):
             Q[i] = (p.radius[i] / k) ** 4
         sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
-        S = solar_flux(self.wave, unit=self.unit).value  # at 1 AU
+        S = solar_flux(self.wave * u.um, unit=self.unit).value  # at 1 AU
         return Q * sigma * S / p.rh_f**2 / p.Delta**2
 
 
