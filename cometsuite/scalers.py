@@ -953,24 +953,31 @@ $Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
 class ScatteredLight(Scaler):
     """Radius-based scaler to simulate light scattering.
 
+
+    .. note::
+
+        Albedo and phase function are not accounted for.
+
+
     The scale factor is::
 
         Qsca * sigma * S / rh**2 / Delta**2
 
-    where `sigma` is the cross-sectional area of the grain, and `S` is
-    the solar flux.  The scattering efficiency is::
+    where `sigma` is the cross-sectional area of the grain, and `S` is the solar
+    flux.  The scattering efficiency is::
 
         Qsca = (2 * pi * a / wave)**4  for a < wave / 2 / pi
-        Qsca = 1.0                     for a >= wave / 2 / pi
+
+        Qsca = 1.0 for a >= wave / 2 / pi
 
 
     Parameters
     ----------
     wave : float
-      Wavelength of the light. [micrometers]
+        Wavelength of the light. [micrometers]
 
     unit : astropy Unit
-      The flux density units of the scale factor.
+        The flux density units of the scale factor.
 
 
     Methods

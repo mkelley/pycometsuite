@@ -109,6 +109,12 @@ Cometsuite contains a simple description for light scattered by particles, `come
     >>> camera.integrate(sim)
     >>> plot(camera)  # note the change in the colorbar scale
 
+.. note::
+
+    `ScatteredLight` approximates Rayleigh scattering, and accounts for
+    heliocentric and observer-particle distance, but does not account for albedo
+    or phase effects.
+
 
 Combining particle scalers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
