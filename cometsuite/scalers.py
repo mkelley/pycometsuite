@@ -10,41 +10,53 @@ Classes
 -------
 Scaler
 CompositeScaler
-ProductionRateScaler
-PSDScaler
 
-ActiveArea
-Angle
+UnityScaler
 ConstantFactor
+ParameterWeight
+
+MassScaler
 FractalPorosity
-GaussianActiveArea
+
+ProductionRateScaler
+QRh
+QRhDouble
+
+PSDScaler
 PSD_Hanner
 PSD_PowerLawLargeScaled
 PSD_PowerLaw
 PSD_BrokenPowerLaw
 PSD_RemoveLogBias
-QRh
-QRhDouble
+
+LightScaler
 ScatteredLight
+ThermalEmission
+
+EjectionDirectionScaler
+ActiveArea
+Angle
+SunCone
+GaussianActiveArea
+SpeedAngle (Deprecated)
+SunSpeedAngle (Deprecated)
+
+EjectionSpeedScaler
 SpeedLimit
 SpeedRadius
 SpeedRh
-SunCone
-SunSpeedAngle
-ThermalEmission
-UnityScaler
-
-
-Exceptions
-----------
-InvalidScaler
-MissingGrainModel
 
 
 Functions
 ---------
 flux_scaler
 mass_calibrate
+
+
+Exceptions
+----------
+InvalidScaler
+MissingGrainModel
 
 """
 
@@ -75,12 +87,23 @@ __all__ = [
     "flux_scaler",
 ]
 
+import abc
 from copy import copy
+
 import numpy as np
+from numpy import pi
+from scipy.integrate import quad, dblquad
+from scipy.interpolate import splrep, splev
+
 import astropy.units as u
 from astropy.coordinates import spherical_to_cartesian
 from sbpy.calib import Sun
+from mskpy import getspiceobj, cal2time, planck, KeplerState
+
 from . import util
+from . import generators as csg
+from . import particle
+from . import particle as csp
 
 
 class InvalidScaler(Exception):
@@ -91,7 +114,7 @@ class MissingGrainModel(Exception):
     pass
 
 
-class Scaler(object):
+class Scaler(abc.ABC):
     """Abstract base class for particle scale factors.
 
     Notes
@@ -107,10 +130,11 @@ class Scaler(object):
         return CompositeScaler(self, scale)
 
     def __repr__(self):
-        return str(self)
+        return "<" + str(self) + ">"
 
+    @abc.abstractmethod
     def __str__(self):
-        return "<Scaler>"
+        return "Scaler()"
 
     def copy(self):
         return copy(self)
@@ -118,6 +142,7 @@ class Scaler(object):
     def formula(self):
         return ""
 
+    @abc.abstractmethod
     def scale(self, p):
         return 1.0
 
@@ -139,6 +164,11 @@ class CompositeScaler(Scaler):
         s = CompositeScaler(SpeedRh())
         s = SpeedRh() * UnityScaler()
 
+    Iterate over the scaler functions::
+
+        for scaler in scalers:
+            scaler
+
 
     Raises
     ------
@@ -153,10 +183,11 @@ class CompositeScaler(Scaler):
         for sc in scales:
             if isinstance(sc, UnityScaler):
                 pass
-            elif isinstance(sc, Scaler):
-                self.scales.append(sc.copy())
             elif isinstance(sc, CompositeScaler):
                 self.scales.extend([s.copy() for s in sc])
+            elif isinstance(sc, Scaler):
+                # must test after CompositeScaler
+                self.scales.append(sc.copy())
             elif isinstance(sc, (float, int)):
                 self.scales.append(ConstantFactor(sc))
             else:
@@ -179,11 +210,20 @@ class CompositeScaler(Scaler):
 
         return self
 
+    def __repr__(self):
+        return "CompositeScaler({})".format(", ".join([repr(s) for s in self]))
+
     def __str__(self):
-        if len(self.scales) == 0:
+        if len(self) == 0:
             return str(UnityScaler())
         else:
             return " * ".join([str(s) for s in self.scales])
+
+    def __len__(self):
+        return len(self.scales)
+
+    def __iter__(self):
+        yield from self.scales
 
     def formula(self):
         return [s.formula() for s in self.scales]
@@ -209,237 +249,23 @@ class CompositeScaler(Scaler):
         return c
 
 
-class ProductionRateScaler(Scaler):
-    """Abstract base class for production rate scale factors."""
+class UnityScaler(Scaler):
+    """Scale factor of 1.0."""
 
-    def scale_rh(self, rh):
-        raise NotImplemented
+    def __init__(self):
+        pass
 
+    def __str__(self):
+        return "UnityScaler()"
 
-class PSDScaler(Scaler):
-    """Abstract base class for particle size distribution factors."""
+    def scale(self, p):
+        return np.ones(len(p))
 
     def scale_a(self, a):
-        raise NotImplemented
+        return np.ones_like(a)
 
-
-class ActiveArea(Scaler):
-    """Emission from an active area.
-
-
-    Parameters
-    ----------
-    w : float
-        Cone full opening angle. [deg]
-
-    ll : array
-        Ecliptic longitude and latitude of the pole. [deg]
-
-    func : string
-        Scale varies with angle following: sin, sin2, cos, cos2
-
-
-    Methods
-    -------
-    scale : Scale factor - 0 to 1 inside cone, 0 outside.
-
-    """
-
-    def __init__(self, w, ll, func=None):
-        self.w = w
-        self.ll = list(ll)
-        self.func = func
-        if func == "sin":
-            self.f = np.sin
-        elif func == "sin2":
-            self.f = lambda th: np.sin(th) ** 2
-        elif func == "cos":
-            self.f = np.cos
-        elif func == "cos2":
-            self.f = lambda th: np.cos(th) ** 2
-        else:
-            self.f = lambda th: 1
-
-        # active area normal vector
-        a = np.radians(self.ll)
-        self.normal = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
-
-    def __str__(self):
-        return 'ActiveArea({}, {}, func="{}")'.format(self.w, self.ll, self.func)
-
-    def scale(self, p):
-        th = util.angle_between(self.normal, p.v_ej)
-        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
-
-
-class ActiveAreaOld(Scaler):
-    """Emission from an active area.
-
-    Broken, may be more than just spherical_rot.
-
-
-    Parameters
-    ----------
-    w : float
-        Cone full opening angle. [deg]
-
-    ll : array
-        Longitude and latitude of the active area. [deg]
-
-    pole : array
-        Ecliptic longitude and latitude of the pole. [deg]
-
-    func : string
-        Scale varies with angle following: sin, sin2, cos, cos2
-
-
-    Methods
-    -------
-    scale : Scale factor - 0 to 1 inside cone, 0 outside.
-
-    """
-
-    def __init__(self, w, ll, pole, func=None):
-        self.w = w
-        self.ll = list(ll)
-        self.pole = list(pole)
-        self.func = func
-        if func == "sin":
-            self.f = np.sin
-        elif func == "sin2":
-            self.f = lambda th: np.sin(th) ** 2
-        elif func == "cos":
-            self.f = np.cos
-        elif func == "cos2":
-            self.f = lambda th: np.cos(th) ** 2
-        else:
-            self.f = lambda th: 1
-
-        # pole and origin unit vector
-        a = np.radians(self.pole)
-        self.pole_unit = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
-
-        # active area normal vector
-        pi = np.pi
-        print(
-            "WARNING: spherical rot must be fixed after final 243P sims (tag old version)"
-        )
-        # need to rotate pole in the same way that 0,pi/2 is rotated to match ll : use vector_rotate
-        o = util.spherical_rot(
-            np.radians(pole[0]),
-            np.radians(pole[1]),
-            0,
-            pi / 2,
-            np.radians(ll[0]),
-            np.radians(ll[1]),
-        )
-        self.normal = util.lb2xyz(*o)
-
-    def __str__(self):
-        return 'ActiveAreaOld({}, {}, {}, func="{}")'.format(
-            self.w, self.ll, self.pole, self.func
-        )
-
-    def scale(self, p):
-        if len(p) > 1:
-            dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
-        else:
-            dot = np.sum(self.normal * p.v_ej) / p.s_ej
-        th = np.degrees(np.arccos(dot))
-        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
-
-
-class Angle(Scaler):
-    """Scale by angle from a vector, with optional constant.
-
-    v = scale * func(th) + const
-
-
-    Parameters
-    ----------
-    lam, bet : float
-       Ecliptic coordinates of the axis to which angles are measured.
-       [deg]
-
-    func : string
-        sin, sin2, sin4, cos, cos2, cos4, sin(th/2), etc.,
-        sin(th<90), sin2(th<90)
-
-    scale : float
-        Scale factor.  [km/s]
-
-    const : float, optional
-        Constant offset.  [km/s]
-
-    """
-
-    def __init__(self, lam, bet, func, scale, const=0):
-        self.lam = lam
-        self.bet = bet
-        self.normal = util.lb2xyz(np.radians(lam), np.radians(bet))
-        self.func = func
-        if func == "sin":
-            self.f = np.sin
-        elif func == "sin2":
-            self.f = lambda th: np.sin(th) ** 2
-        elif func == "sin4":
-            self.f = lambda th: np.sin(th) ** 4
-        elif func == "sin(th/2)":
-            self.f = lambda th: np.sin(th / 2)
-        elif func == "sin2(th/2)":
-            self.f = lambda th: np.sin(th / 2) ** 2
-        elif func == "sin4(th/2)":
-            self.f = lambda th: np.sin(th / 2) ** 4
-        elif func == "sin(th<90)":
-            self.f = self.sin_th_lt_90
-        elif func == "sin2(th<90)":
-            self.f = self.sin2_th_lt_90
-        elif func == "cos":
-            self.f = np.cos
-        elif func == "cos2":
-            self.f = lambda th: np.cos(th) ** 2
-        elif func == "cos4":
-            self.f = lambda th: np.cos(th) ** 4
-        elif func == "cos(th/2)":
-            self.f = lambda th: np.cos(th / 2)
-        elif func == "cos2(th/2)":
-            self.f = lambda th: np.cos(th / 2) ** 2
-        elif func == "cos4(th/2)":
-            self.f = lambda th: np.cos(th / 2) ** 4
-        else:
-            raise ValueError("func must be sin or cos.")
-        self.c1 = scale
-        self.c0 = const
-
-    def __str__(self):
-        return 'Angle({}, {}, "{}", {}, const={})'.format(
-            self.lam, self.bet, self.func, self.c1, self.c0
-        )
-
-    @staticmethod
-    def sin_th_lt_90(th):
-        """sin(th) for th < 90 deg, else 1.0"""
-        f = np.sin(th)
-        f[th > (np.pi / 2)] = 1.0
-        return f
-
-    @staticmethod
-    def sin2_th_lt_90(th):
-        """sin2(th) for th < 90 deg, else 1.0"""
-        f = np.sin(th) ** 2
-        f[th > (np.pi / 2)] = 1.0
-        return f
-
-    def scale(self, p):
-        th = util.angle_between(self.normal, p.v_ej)
-        scale = self.c1 * self.f(np.radians(th)) + self.c0
-        return scale
-
-
-class SpeedAngle(Angle):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        raise DeprecationWarning("SpeedAngle depricated; use Angle")
+    def scale_rh(self, rh):
+        return np.ones_like(rh)
 
 
 class ConstantFactor(Scaler):
@@ -449,7 +275,7 @@ class ConstantFactor(Scaler):
         self.c = c
 
     def __str__(self):
-        return "ConstantFactor({})".format(self.c)
+        return "{}({})".format(type(self).__name__, self.c)
 
     def formula(self):
         return r"$C = {:.3g}$".format(self.c)
@@ -458,13 +284,46 @@ class ConstantFactor(Scaler):
         return self.c * np.ones(len(p))
 
 
-class FractalPorosity(Scaler):
+class ParameterWeight(Scaler):
+    """Scale value based on a parameter.
+
+
+    Parameters
+    ----------
+    key : string
+        The particle parameter key that defines the scale factor, e.g., 'age'.
+
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, key):
+        self.key = key
+
+    def __str__(self):
+        return 'ParameterWeight("{}")'.format(self.key)
+
+    def formula(self):
+        return "W = {}".format(self.key)
+
+    def scale(self, p):
+        return p[self.key]
+
+
+class MassScaler(Scaler, abc.ABC):
+    """A scaler that affects particle mass."""
+
+
+class FractalPorosity(MassScaler):
     """Density scale factor based on fractal porosity.
 
     For the bulk material density `rho0`, minimum grain size `a0`, and
     fractal dimension `D`::
 
-      rho = rho0 * (a / a0)**(D - 3)
+        rho = rho0 * (a / a0)**(D - 3)
 
 
     Parameters
@@ -497,60 +356,24 @@ class FractalPorosity(Scaler):
         return (p.radius / self.a0) ** (self.D - 3.0)
 
 
-class GaussianActiveArea(ActiveArea):
-    """Emission from an active area with a normal distribution.
+class ProductionRateScaler(Scaler, abc.ABC):
+    """Abstract base class for production rate scale factors."""
 
-    Planetocentric 0 deg longitude is defined using the North Ecliptic
-    Pole: ll00 = pole × NEP.  If the pole is parallel to the NEP, then
-    the Vernal Equinox is used instead.
-
-
-    Parameters
-    ----------
-    w : float
-        Cone full opening angle. [deg]
-
-    sig : float
-        Sigma of Gaussian function defining the activity. [deg]
-
-    ll : array
-        Longitude and latitude of the active area. [deg]
-
-    pole : array
-        Ecliptic longitude and latitude of the pole. [deg]
+    @abc.abstractmethod
+    def scale_rh(self, rh):
+        raise NotImplemented
 
 
-    Methods
-    -------
-    scale : Scale factor: 0 to 1 inside the cone, 0 outside.
+class QRh(ProductionRateScaler):
+    """Dust production rate dependence on `rh_i`.
 
-    """
-
-    def __init__(self, w, sig, ll, pole):
-        super().__init__(w, ll, pole)
-        self.sig = sig
-
-    def __str__(self):
-        return "GaussianActiveArea({}, {}, {}, {})".format(
-            self.w, self.sig, self.ll, self.pole
-        )
-
-    def scale(self, p):
-        th = util.angle_between(self.normal, p.v_ej)
-        i = th <= (self.w / 2.0)
-        scale = np.zeros(i.shape, float)
-        scale[i] = util.gaussian(th[i], 0, self.sig)
-        return scale
-
-
-class ParameterWeight(Scaler):
-    """Scale value based on a parameter.
+    :math:`Qd \propto rh_i**k`
 
 
     Parameters
     ----------
-    key : string
-        The particle parameter key that defines the scale factor, e.g., 'age'.
+    k : float
+      Power-law scale factor slope.
 
 
     Methods
@@ -559,17 +382,85 @@ class ParameterWeight(Scaler):
 
     """
 
-    def __init__(self, key):
-        self.key = key
+    def __init__(self, k):
+        self.k = k
 
     def __str__(self):
-        return 'ParameterWeight("{}")'.format(self.key)
+        return "QRh({})".format(self.k)
 
     def formula(self):
-        return "W = {}".format(self.key)
+        return (r"$Q \propto r_h^{{{}}}$").format(self.k)
 
     def scale(self, p):
-        return p[self.key]
+        return self.scale_rh(p.rh_i)
+
+    def scale_rh(self, rh):
+        return rh**self.k
+
+
+class QRhDouble(ProductionRateScaler):
+    """Double power-law version of `QRh`.
+
+    :math:`Qd \propto rh_i**k1` for :math:`rh_i < rh0`
+    :math:`Qd \propto rh_i**k2` for :math:`rh_i > rh0`
+
+    The width of the transition from `k1` to `k2` is parameterized by
+    `k12`.  Larger `k12` yields shorter transitions.  Try 100.
+
+    The function is normalized to 1.0 at `rh0`.
+
+
+    Parameters
+    ----------
+    k1, k2 : float
+      Power-law scale factor slopes.
+
+    k12 : float
+      Parameter controlling the width of the transition from `k1` to
+      `k2`.
+
+    rh0 : float
+      The transition heliocentric distance. [AU]
+
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, k1, k2, k12, rh0):
+        self.k1 = k1
+        self.k2 = k2
+        self.k12 = k12
+        self.rh0 = rh0
+
+    def __str__(self):
+        return "QRhDouble({}, {}, {}, {})".format(self.k1, self.k2, self.k12, self.rh0)
+
+    def formula(self):
+        return (
+            r"""$Q \propto r_h^{{{}}}$ for $r_h < {}$ AU
+$Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
+        ).format(self.k1, self.rh0, self.k2, self.rh0)
+
+    def scale(self, p):
+        return self.scale_rh(p.rh_i)
+
+    def scale_rh(self, rh):
+        alpha = (self.k1 - self.k2) / self.k12
+        sc = 2**-alpha
+        sc = sc * (rh / self.rh0) ** self.k2
+        sc = sc * (1 + (rh / self.rh0) ** self.k12) ** alpha
+        return sc
+
+
+class PSDScaler(Scaler, abc.ABC):
+    """Abstract base class for particle size distribution factors."""
+
+    @abc.abstractmethod
+    def scale_a(self, a):
+        raise NotImplemented
 
 
 class PSD_Hanner(PSDScaler):
@@ -859,98 +750,11 @@ class PSD_RemoveLogBias(PSDScaler):
         return self.N0 * a
 
 
-class QRh(ProductionRateScaler):
-    """Dust production rate dependence on `rh_i`.
-
-    Qd \propto rh_i**k
+class LightScaler(Scaler, abc.ABC):
+    """Scalers that affect the amount of light emitted from a particle."""
 
 
-    Parameters
-    ----------
-    k : float
-      Power-law scale factor slope.
-
-
-    Methods
-    -------
-    scale : Scale factor.
-
-    """
-
-    def __init__(self, k):
-        self.k = k
-
-    def __str__(self):
-        return "QRh({})".format(self.k)
-
-    def formula(self):
-        return (r"$Q \propto r_h^{{{}}}$").format(self.k)
-
-    def scale(self, p):
-        return self.scale_rh(p.rh_i)
-
-    def scale_rh(self, rh):
-        return rh**self.k
-
-
-class QRhDouble(ProductionRateScaler):
-    """Double power-law version of `QRh`.
-
-    Qd \propto rh_i**k1 for rh_i < rh0
-    Qd \propto rh_i**k2 for rh_i > rh0
-
-    The width of the transition from `k1` to `k2` is parameterized by
-    `k12`.  Larger `k12` yields shorter transitions.  Try 100.
-
-    The function is normalized to 1.0 at `rh0`.
-
-
-    Parameters
-    ----------
-    k1, k2 : float
-      Power-law scale factor slopes.
-
-    k12 : float
-      Parameter controlling the width of the transition from `k1` to
-      `k2`.
-
-    rh0 : float
-      The transition heliocentric distance. [AU]
-
-
-    Methods
-    -------
-    scale : Scale factor.
-
-    """
-
-    def __init__(self, k1, k2, k12, rh0):
-        self.k1 = k1
-        self.k2 = k2
-        self.k12 = k12
-        self.rh0 = rh0
-
-    def __str__(self):
-        return "QRhDouble({}, {}, {}, {})".format(self.k1, self.k2, self.k12, self.rh0)
-
-    def formula(self):
-        return (
-            r"""$Q \propto r_h^{{{}}}$ for $r_h < {}$ AU
-$Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
-        ).format(self.k1, self.rh0, self.k2, self.rh0)
-
-    def scale(self, p):
-        return self.scale_rh(p.rh_i)
-
-    def scale_rh(self, rh):
-        alpha = (self.k1 - self.k2) / self.k12
-        sc = 2**-alpha
-        sc = sc * (rh / self.rh0) ** self.k2
-        sc = sc * (1 + (rh / self.rh0) ** self.k12) ** alpha
-        return sc
-
-
-class ScatteredLight(Scaler):
+class ScatteredLight(LightScaler):
     """Radius-based scaler to simulate light scattering.
 
 
@@ -1008,191 +812,7 @@ class ScatteredLight(Scaler):
         return Q * sigma * self.S / p.rh_f**2 / p.Delta**2
 
 
-class SpeedLimit(Scaler):
-    """Limit speed to given values.
-
-    If the particle speed is outside the range [`smin`, `smax`], the
-    returned scale factor is 0.0.  1.0, otherwise.
-
-
-    Parameters
-    ----------
-    smin : float, optional
-      Minimum ejection speed. [km/s]
-
-    smax : float, optional
-      Maximum ejection speed. [km/s]
-
-    scales : Scaler or CompositeScaler, optional
-      Normalize the speed with `scales` before applying limits.  For
-      example, if a simulation was picked using over a range of
-      values, then scaled with `SpeedRadius`, set `scales` to use the
-      same SpeedRadius to undo the scaling.
-
-
-    Methods
-    -------
-    scale : Scale factor.
-
-    """
-
-    def __init__(self, smin=0, smax=np.inf, scalers=None):
-        self.smin = smin
-        self.smax = smax
-        if scalers is None:
-            self.scalers = UnityScaler()
-        else:
-            self.scalers = scalers
-
-    def __str__(self):
-        return "SpeedLimit(smin={}, smax={}, scalers={})".format(
-            self.smin, self.smax, self.scalers
-        )
-
-    def scale(self, p):
-        s = p.s_ej / self.scalers.scale(p)
-        i = (s < self.smin) + (s > self.smax)
-        if np.iterable(i):
-            scale = np.ones_like(s)
-            if any(i):
-                scale[i] = 0.0
-        else:
-            scale = 0.0 if i else 1.0
-        return scale
-
-
-class SpeedRadius(Scaler):
-    """Speed scale factor based on grain raidus.
-
-    For `a` measured in micrometers::
-
-      scale = (a / a0)**k
-
-
-    Parameters
-    ----------
-    k : float, optional
-      Power-law exponent.
-
-    a0 : float, optional
-      Normalization radius.
-
-
-    Methods
-    -------
-    scale : Scale factor.
-
-    """
-
-    def __init__(self, k=-0.5, a0=1.0):
-        self.k = k
-        self.a0 = a0
-
-    def __str__(self):
-        return "SpeedRadius(k={}, a0={})".format(self.k, self.a0)
-
-    def scale(self, p):
-        return (p.radius / self.a0) ** self.k
-
-
-class SpeedRh(Scaler):
-    """Speed scale factor based on :math:`|r_i|`.
-
-    For `rh` measured in AU::
-
-      scale = (rh / rh0)**k
-
-
-    Parameters
-    ----------
-    k : float, optional
-        Power-law exponent.
-
-    rh0 : float, optional
-        Normalization distance.
-
-
-    Methods
-    -------
-    scale : Scale factor.
-
-    """
-
-    def __init__(self, k=-0.5, rh0=1.0):
-        self.k = k
-        self.rh0 = rh0
-
-    def __str__(self):
-        return "SpeedRh(k={}, rh0={})".format(self.k, self.rh0)
-
-    def scale(self, p):
-        if len(p) == 1:
-            rh = np.sqrt(np.sum(p.r_i**2)) / 149597870.69
-        else:
-            rh = np.sqrt(np.sum(p.r_i**2, 1)) / 149597870.69
-        return (rh / self.rh0) ** self.k
-
-
-class SunCone(Scaler):
-    """A cone of emission ejected toward the Sun.
-
-
-    Parameters
-    ----------
-    w : float
-      Cone full opening angle. [deg]
-
-
-    Methods
-    -------
-    scale : Scale factor: 1 inside cone, 0 outside.
-
-    """
-
-    def __init__(self, w):
-        self.w = w
-
-    def __str__(self):
-        return "SunCone({})".format(self.w)
-
-    def scale(self, p):
-        th = util.angle_between(-p.r_i, p.v_ej)
-        return (th <= (self.w / 2.0)).astype(int)
-
-
-class SunSpeedAngle(SpeedAngle):
-    """Scale speed by angle from Sun, with optional constant.
-
-    v = scale * func(th) + const
-
-
-    Parameters
-    ----------
-    func : string
-        sin, sin2, sin4, cos, cos2, cos4
-
-    scale : float
-        Scale factor.  [km/s]
-
-    const : float, optional
-        Constant offset.  [km/s]
-
-    """
-
-    def __init__(self, func, scale, const=0):
-        super().__init__(0, 0, func, scale, const=const)
-
-    def __str__(self):
-        return 'SunSpeedAngle("{}", {}, const={})'.format(
-            self.func, self.speed_scale, self.const
-        )
-
-    def scale(self, p):
-        self.r = (-p.r_i.T / util.magnitude(p.r_i)).T
-        return super().scale(p)
-
-
-class ThermalEmission(Scaler):
+class ThermalEmission(LightScaler):
     """Radius-based scaler to simulate thermal emission.
 
     The scale factor is::
@@ -1250,9 +870,6 @@ class ThermalEmission(Scaler):
         )
 
     def scale(self, p):
-        from mskpy.util import planck
-        from . import particle
-
         gtm_filename = {
             "amorphouscarbon": "am-carbon.fits",
             "amorphousolivine50": "am-olivine50.fits",
@@ -1266,8 +883,6 @@ class ThermalEmission(Scaler):
 
         if composition in gtm_filename:
             from dust import readgtm, gtmInterp
-            from scipy import interpolate
-            from scipy.interpolate import splrep, splev
 
             gtm = readgtm(gtm_filename[composition])
             T = np.zeros_like(p.radius)
@@ -1304,17 +919,461 @@ class ThermalEmission(Scaler):
         return Q * sigma * B / p.Delta**2
 
 
-class UnityScaler(Scaler):
-    """Scale factor of 1.0."""
+class EjectionDirectionScaler(Scaler, abc.ABC):
+    """Scaler that is based on the ejection direction."""
 
-    def __init__(self):
-        pass
+
+class ActiveArea(EjectionDirectionScaler):
+    """Emission from an active area.
+
+
+    Parameters
+    ----------
+    w : float
+        Cone full opening angle. [deg]
+
+    ll : array
+        Ecliptic longitude and latitude of the pole. [deg]
+
+    func : string
+        Scale varies with angle following: sin, sin2, cos, cos2
+
+
+    Methods
+    -------
+    scale : Scale factor - 0 to 1 inside cone, 0 outside.
+
+    """
+
+    def __init__(self, w, ll, func=None):
+        self.w = w
+        self.ll = list(ll)
+        self.func = func
+        if func == "sin":
+            self.f = np.sin
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "cos":
+            self.f = np.cos
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
+        else:
+            self.f = lambda th: 1
+
+        # active area normal vector
+        a = np.radians(self.ll)
+        self.normal = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
 
     def __str__(self):
-        return "UnityScaler()"
+        return 'ActiveArea({}, {}, func="{}")'.format(self.w, self.ll, self.func)
 
     def scale(self, p):
-        return np.ones(len(p))
+        th = util.angle_between(self.normal, p.v_ej)
+        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
+
+
+class ActiveAreaOld(EjectionDirectionScaler):
+    """Emission from an active area.
+
+    Broken, may be more than just spherical_rot.
+
+
+    Parameters
+    ----------
+    w : float
+        Cone full opening angle. [deg]
+
+    ll : array
+        Longitude and latitude of the active area. [deg]
+
+    pole : array
+        Ecliptic longitude and latitude of the pole. [deg]
+
+    func : string
+        Scale varies with angle following: sin, sin2, cos, cos2
+
+
+    Methods
+    -------
+    scale : Scale factor - 0 to 1 inside cone, 0 outside.
+
+    """
+
+    def __init__(self, w, ll, pole, func=None):
+        self.w = w
+        self.ll = list(ll)
+        self.pole = list(pole)
+        self.func = func
+        if func == "sin":
+            self.f = np.sin
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "cos":
+            self.f = np.cos
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
+        else:
+            self.f = lambda th: 1
+
+        # pole and origin unit vector
+        a = np.radians(self.pole)
+        self.pole_unit = np.array(spherical_to_cartesian(1.0, a[1], a[0]))
+
+        # active area normal vector
+        pi = np.pi
+        print(
+            "WARNING: spherical rot must be fixed after final 243P sims (tag old version)"
+        )
+        # need to rotate pole in the same way that 0,pi/2 is rotated to match ll : use vector_rotate
+        o = util.spherical_rot(
+            np.radians(pole[0]),
+            np.radians(pole[1]),
+            0,
+            pi / 2,
+            np.radians(ll[0]),
+            np.radians(ll[1]),
+        )
+        self.normal = util.lb2xyz(*o)
+
+    def __str__(self):
+        return 'ActiveAreaOld({}, {}, {}, func="{}")'.format(
+            self.w, self.ll, self.pole, self.func
+        )
+
+    def scale(self, p):
+        if len(p) > 1:
+            dot = np.sum(self.normal * p.v_ej, 1) / p.s_ej
+        else:
+            dot = np.sum(self.normal * p.v_ej) / p.s_ej
+        th = np.degrees(np.arccos(dot))
+        return (th <= (self.w / 2.0)).astype(int) * self.f(th)
+
+
+class Angle(EjectionDirectionScaler):
+    """Scale by angle from a vector, with optional constant.
+
+    v = scale * func(th) + const
+
+
+    Parameters
+    ----------
+    lam, bet : float
+       Ecliptic coordinates of the axis to which angles are measured.
+       [deg]
+
+    func : string
+        sin, sin2, sin4, cos, cos2, cos4, sin(th/2), etc.,
+        sin(th<90), sin2(th<90)
+
+    scale : float
+        Scale factor.  [km/s]
+
+    const : float, optional
+        Constant offset.  [km/s]
+
+    """
+
+    def __init__(self, lam, bet, func, scale, const=0):
+        self.lam = lam
+        self.bet = bet
+        self.normal = util.lb2xyz(np.radians(lam), np.radians(bet))
+        self.func = func
+        if func == "sin":
+            self.f = np.sin
+        elif func == "sin2":
+            self.f = lambda th: np.sin(th) ** 2
+        elif func == "sin4":
+            self.f = lambda th: np.sin(th) ** 4
+        elif func == "sin(th/2)":
+            self.f = lambda th: np.sin(th / 2)
+        elif func == "sin2(th/2)":
+            self.f = lambda th: np.sin(th / 2) ** 2
+        elif func == "sin4(th/2)":
+            self.f = lambda th: np.sin(th / 2) ** 4
+        elif func == "sin(th<90)":
+            self.f = self.sin_th_lt_90
+        elif func == "sin2(th<90)":
+            self.f = self.sin2_th_lt_90
+        elif func == "cos":
+            self.f = np.cos
+        elif func == "cos2":
+            self.f = lambda th: np.cos(th) ** 2
+        elif func == "cos4":
+            self.f = lambda th: np.cos(th) ** 4
+        elif func == "cos(th/2)":
+            self.f = lambda th: np.cos(th / 2)
+        elif func == "cos2(th/2)":
+            self.f = lambda th: np.cos(th / 2) ** 2
+        elif func == "cos4(th/2)":
+            self.f = lambda th: np.cos(th / 2) ** 4
+        else:
+            raise ValueError("func must be sin or cos.")
+        self.c1 = scale
+        self.c0 = const
+
+    def __str__(self):
+        return 'Angle({}, {}, "{}", {}, const={})'.format(
+            self.lam, self.bet, self.func, self.c1, self.c0
+        )
+
+    @staticmethod
+    def sin_th_lt_90(th):
+        """sin(th) for th < 90 deg, else 1.0"""
+        f = np.sin(th)
+        f[th > (np.pi / 2)] = 1.0
+        return f
+
+    @staticmethod
+    def sin2_th_lt_90(th):
+        """sin2(th) for th < 90 deg, else 1.0"""
+        f = np.sin(th) ** 2
+        f[th > (np.pi / 2)] = 1.0
+        return f
+
+    def scale(self, p):
+        th = util.angle_between(self.normal, p.v_ej)
+        scale = self.c1 * self.f(np.radians(th)) + self.c0
+        return scale
+
+
+class SunCone(Scaler):
+    """A cone of emission ejected toward the Sun.
+
+
+    Parameters
+    ----------
+    w : float
+      Cone full opening angle. [deg]
+
+
+    Methods
+    -------
+    scale : Scale factor: 1 inside cone, 0 outside.
+
+    """
+
+    def __init__(self, w):
+        self.w = w
+
+    def __str__(self):
+        return "SunCone({})".format(self.w)
+
+    def scale(self, p):
+        th = util.angle_between(-p.r_i, p.v_ej)
+        return (th <= (self.w / 2.0)).astype(int)
+
+
+class SpeedAngle(Angle):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        raise DeprecationWarning("SpeedAngle depricated; use Angle")
+
+
+class SunSpeedAngle(SpeedAngle):
+    """Scale speed by angle from Sun, with optional constant.
+
+    v = scale * func(th) + const
+
+
+    Parameters
+    ----------
+    func : string
+        sin, sin2, sin4, cos, cos2, cos4
+
+    scale : float
+        Scale factor.  [km/s]
+
+    const : float, optional
+        Constant offset.  [km/s]
+
+    """
+
+    def __init__(self, func, scale, const=0):
+        super().__init__(0, 0, func, scale, const=const)
+
+    def __str__(self):
+        return 'SunSpeedAngle("{}", {}, const={})'.format(
+            self.func, self.speed_scale, self.const
+        )
+
+    def scale(self, p):
+        self.r = (-p.r_i.T / util.magnitude(p.r_i)).T
+        return super().scale(p)
+
+
+class GaussianActiveArea(ActiveArea):
+    """Emission from an active area with a normal distribution.
+
+    Planetocentric 0 deg longitude is defined using the North Ecliptic
+    Pole: ll00 = pole × NEP.  If the pole is parallel to the NEP, then
+    the Vernal Equinox is used instead.
+
+
+    Parameters
+    ----------
+    w : float
+        Cone full opening angle. [deg]
+
+    sig : float
+        Sigma of Gaussian function defining the activity. [deg]
+
+    ll : array
+        Longitude and latitude of the active area. [deg]
+
+    pole : array
+        Ecliptic longitude and latitude of the pole. [deg]
+
+
+    Methods
+    -------
+    scale : Scale factor: 0 to 1 inside the cone, 0 outside.
+
+    """
+
+    def __init__(self, w, sig, ll, pole):
+        super().__init__(w, ll, pole)
+        self.sig = sig
+
+    def __str__(self):
+        return "GaussianActiveArea({}, {}, {}, {})".format(
+            self.w, self.sig, self.ll, self.pole
+        )
+
+    def scale(self, p):
+        th = util.angle_between(self.normal, p.v_ej)
+        i = th <= (self.w / 2.0)
+        scale = np.zeros(i.shape, float)
+        scale[i] = util.gaussian(th[i], 0, self.sig)
+        return scale
+
+
+class EjectionSpeedScaler(Scaler, abc.ABC):
+    """ "Scaler that affects the ejection speed"""
+
+
+class SpeedLimit(EjectionSpeedScaler):
+    """Limit speed to given values.
+
+    If the particle speed is outside the range [`smin`, `smax`], the
+    returned scale factor is 0.0.  1.0, otherwise.
+
+
+    Parameters
+    ----------
+    smin : float, optional
+      Minimum ejection speed. [km/s]
+
+    smax : float, optional
+      Maximum ejection speed. [km/s]
+
+    scales : Scaler or CompositeScaler, optional
+      Normalize the speed with `scales` before applying limits.  For
+      example, if a simulation was picked using over a range of
+      values, then scaled with `SpeedRadius`, set `scales` to use the
+      same SpeedRadius to undo the scaling.
+
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, smin=0, smax=np.inf, scalers=None):
+        self.smin = smin
+        self.smax = smax
+        if scalers is None:
+            self.scalers = UnityScaler()
+        else:
+            self.scalers = scalers
+
+    def __str__(self):
+        return "SpeedLimit(smin={}, smax={}, scalers={})".format(
+            self.smin, self.smax, self.scalers
+        )
+
+    def scale(self, p):
+        s = p.s_ej / self.scalers.scale(p)
+        i = (s < self.smin) + (s > self.smax)
+        if np.iterable(i):
+            scale = np.ones_like(s)
+            if any(i):
+                scale[i] = 0.0
+        else:
+            scale = 0.0 if i else 1.0
+        return scale
+
+
+class SpeedRadius(EjectionSpeedScaler):
+    """Speed scale factor based on grain raidus.
+
+    For `a` measured in micrometers::
+
+      scale = (a / a0)**k
+
+
+    Parameters
+    ----------
+    k : float, optional
+      Power-law exponent.
+
+    a0 : float, optional
+      Normalization radius.
+
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, k=-0.5, a0=1.0):
+        self.k = k
+        self.a0 = a0
+
+    def __str__(self):
+        return "SpeedRadius(k={}, a0={})".format(self.k, self.a0)
+
+    def scale(self, p):
+        return (p.radius / self.a0) ** self.k
+
+
+class SpeedRh(EjectionSpeedScaler):
+    """Speed scale factor based on :math:`|r_i|`.
+
+    For `rh` measured in AU::
+
+      scale = (rh / rh0)**k
+
+
+    Parameters
+    ----------
+    k : float, optional
+        Power-law exponent.
+
+    rh0 : float, optional
+        Normalization distance.
+
+
+    Methods
+    -------
+    scale : Scale factor.
+
+    """
+
+    def __init__(self, k=-0.5, rh0=1.0):
+        self.k = k
+        self.rh0 = rh0
+
+    def __str__(self):
+        return "SpeedRh(k={}, rh0={})".format(self.k, self.rh0)
+
+    def scale(self, p):
+        if len(p) == 1:
+            rh = np.sqrt(np.sum(p.r_i**2)) / 149597870.69
+        else:
+            rh = np.sqrt(np.sum(p.r_i**2, 1)) / 149597870.69
+        return (rh / self.rh0) ** self.k
 
 
 def flux_scaler(Qd=0, psd="a^-3.5", thermal=24, scattered=-1, log_bias=True):
@@ -1375,28 +1434,38 @@ def flux_scaler(Qd=0, psd="a^-3.5", thermal=24, scattered=-1, log_bias=True):
     return scaler
 
 
-def mass_calibrate(Q0, scaler, params, n=None):
+def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     """Calibrate a simulation to an instantaneous dust production rate.
 
-    Currently considers `ProductionRateScaler`s and `PSDScaler`s.
-
     Requires particles generated uniformly over time.
+
+    .. todo::
+        Account for `EjectionDirectionScaler`s.
 
 
     Parameters
     ----------
-    Q0 : Quantity
-        The dust production rate (mass per time) at time of observation.
+    sim : Simulation
+        The simulation to calibrate.
 
     scaler : Scaler or CompositeScaler
         The simulation scale factors.
 
-    params : dict
-        The parameters of the simulation.
+    Q0 : Quantity
+        The dust production rate (mass per time) at ``t0``.
 
-    n : int, optional
-        The number of particles in the simulation.  The default is to use
-        `params['nparticles']`, but this may not always be desired.
+    t0 : Time, optional
+        The dust production rate is specified at this time.  If ``None``, then
+        the observation time in params is used.
+
+    n : int or float, optional
+        Total number of particles of the simulation.  The default is to use the
+        number of simulated particles, but this may not always be desired.
+
+    state_class : class, optional
+        Use this state class to determine the position of the comet from "r" and
+        "v" in ``sim["comet]``.  The default behavior is to use "name" and
+        "kernel" in ``sim["comet"]`` SPICE via ``mskpy.ephem.getspiceobj``.
 
 
     Returns
@@ -1409,91 +1478,113 @@ def mass_calibrate(Q0, scaler, params, n=None):
     Notes
     -----
 
-    Let: dm/dp = C * dm/dt * dt/dp
+    simulation picked from uniform distribution
 
-    --> ∫dm/dp dp = C * ∫dm/dt dt / (∫dp/dt dt)
+    mean particle mass, m_p: ∫dn/da * m(a) da / ∫da
 
-    --> C = ∫dm/dp dp * ∫dp/dt dt / (∫dm/dt dt)
+    total number of particles: n *
 
-    ∫dm/dp dp = mean particle mass
-              = ∫dn/da * 4/3π a**3 da = m_p
-
-    ∫dm/dt dt = total expected mass = M
-
-    ∫dp/dt dt = total simulated particles = n
+    total expected mass, M: ∫dm/dt dt = total expected mass = M
 
     --> C = m_p * n / M
 
     """
 
-    from scipy.integrate import quad
-    from mskpy import getspiceobj, cal2time
-    from . import generators as csg
-    from . import particle as csp
-
-    Q0 = Q0.to(u.kg / u.s)
-
-    if n is None:
-        n = params["nparticles"]
-
-    if not params["pfunc"]["age"].startswith("Uniform("):
+    if not sim.params["pfunc"]["age"].startswith("Uniform("):
         raise ValueError("Uniform particle generator required.")
 
-    gen = eval("csg." + params["pfunc"]["age"])
-    trange_sim = np.array((gen.min(), gen.max()))
+    n = sim.params["nparticles"] if n is None else n
 
-    gen = eval("csg." + params["pfunc"]["radius"])
-    arange_sim = np.array((gen.min(), gen.max()))
+    # Dust production rate should be normalized to Q0(t0)
+    t_obs = cal2time(sim.params["date"])
+    if t0 is None:
+        t0 = t_obs
 
-    # search scaler for production rate scalers
-    Q = UnityScaler()
-    if isinstance(scaler, ProductionRateScaler):
-        Q *= scaler
-    elif isinstance(scaler, CompositeScaler):
-        s = [sc for sc in scaler.scales if isinstance(sc, ProductionRateScaler)]
-        Q *= CompositeScaler(*s)
-
-    # search for PSD scalers
-    PSD = UnityScaler()
-    if isinstance(scaler, PSDScaler):
-        PSD *= scaler
-    elif isinstance(scaler, CompositeScaler):
-        s = [sc for sc in scaler.scales if (isinstance(sc, PSDScaler))]
-        PSD *= CompositeScaler(*s)
-
-    # derive density
-    comp = eval("csp." + params["pfunc"]["composition"])
-    rho = eval(params["pfunc"]["density_scale"]) * comp.rho0
-
-    if params["comet"]["kernel"] == "None":
-        kernel = None
+    # get comet's position
+    if state_class is None:
+        if sim.params["comet"]["name"] is None:
+            raise ValueError(
+                "The comet's name is None: state_class is required but not provided."
+            )
+        if sim.params["comet"]["kernel"] == "None":
+            kernel = None
+        else:
+            kernel = sim.params["comet"]["kernel"]
+        comet = getspiceobj(sim.params["comet"]["name"], kernel=kernel)
     else:
-        kernel = params["comet"]["kernel"]
+        comet = KeplerState(
+            sim.params["comet"]["r"], sim.params["comet"]["v"], sim.params["date"]
+        )
 
-    comet = getspiceobj(params["comet"]["name"], kernel=kernel)
-    t0 = cal2time(params["date"])
+    # get all scalers that affect simulation production rate
+    _scaler = CompositeScaler(
+        *(
+            s
+            for s in CompositeScaler(scaler)
+            if not isinstance(
+                s, (LightScaler, EjectionSpeedScaler, ParameterWeight, MassScaler)
+            )
+        )
+    )
 
-    # normalize to Q0 at t0
-    r = comet.r(t0)
-    rh = np.sqrt(np.dot(r, r)) / 1.495978707e8
-    Q *= Q0.to("kg/s").value / Q.scale_rh(rh)
+    unsupported = [
+        not isinstance(s, (ProductionRateScaler, PSDScaler, ConstantFactor))
+        for s in _scaler
+    ]
+    if any(unsupported):
+        raise ValueError(
+            "Only ProductionRateScaler, PSDScaler, and ConstantFactor are supported."
+            "  Either fix the code, or perhaps setting `n` will help?"
+        )
 
+    # get scalers that affect dust production rate
+    Qd_scaler = CompositeScaler(
+        *[s for s in _scaler if isinstance(s, ProductionRateScaler)]
+    )
+
+    # get particle size distribution scalers and constant factors (it may be
+    # arbitrary where we account for constant factors)
+    psd_scaler = CompositeScaler(
+        *[s for s in _scaler if (isinstance(s, (PSDScaler, ConstantFactor)))]
+    )
+
+    # density
+    composition = eval("csp." + sim.params["pfunc"]["composition"])
+    rho = eval(sim.params["pfunc"]["density_scale"]) * composition.rho0
+
+    # calculate the total mass of the simulation, with PSD and production rate
+    # weights
     def mass(a):
-        # a in um, mass in kg
-        from numpy import pi
-
-        # m = 4/3. * pi * (a * 1e-4)**3
-        m = 4 / 3 * pi * a**3 * 1e-12
-        m *= rho.scale(csp.Particle(radius=a)) * 1e-3
-        dnda = PSD.scale_a(a)
+        # a in μm, mass in kg
+        m = 4 / 3 * pi * (a * 1e-6) ** 3
+        m *= rho.scale(csp.Particle(radius=a)) * 1e3
+        dnda = psd_scaler.scale_a(a)
         return m * dnda
 
-    def production_rate(age):
-        # unitless
-        r = comet.r(t0 - age * u.s)
-        rh = np.sqrt(np.dot(r, r)) / 1.495978707e8
-        return Q.scale_rh(rh)
+    def relative_production_rate(age):
+        # kg/s
+        rh = np.linalg.norm(comet.r(t_obs - age * u.s)) / 1.495978707e8
+        return Qd_scaler.scale_rh(rh)
 
-    m_p = (quad(mass, *arange_sim)[0] / quad(PSD.scale_a, *arange_sim)[0] ** -1) * u.kg
-    M = quad(production_rate, *trange_sim)[0] * u.kg * u.day / u.s
-    return (M / (m_p * n)).to(u.dimensionless_unscaled).value
+    gen = eval("csg." + sim.params["pfunc"]["radius"])
+    arange_sim = np.array((gen.min(), gen.max()))
+    points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
+
+    # mean particle mass of the simulation, picked from a uniform distribution
+    m_p = (quad(mass, *arange_sim, points=points)[0] / arange_sim.ptp()) * u.kg
+
+    gen = eval("csg." + sim.params["pfunc"]["age"])
+    trange_sim = np.array((gen.min(), gen.max())) * 86400  # s
+    x = quad(relative_production_rate, *trange_sim)[0] / (trange_sim.ptp())
+
+    M_sim = n * m_p * x
+
+    # calculate total expected mass
+
+    # normalize to Q0 at t0
+    rh0 = np.linalg.norm(comet.r(t0)) / 1.495978707e8
+    Q_normalization = Q0.to("kg/s").value / Qd_scaler.scale_rh(rh0)
+
+    M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
+
+    return (M / M_sim).to_value(u.dimensionless_unscaled)
