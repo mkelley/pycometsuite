@@ -32,8 +32,8 @@ The following examples use this simple coma simulation:
     >>> ve = [5.82028904e+00,  2.89897439e+01, -1.16199526e-03]
     >>> 
     >>> # two-body orbit propagation
-    >>> comet = KeplerState(rc, vc, date)
-    >>> earth = KeplerState(re, ve, date)
+    >>> comet = KeplerState(rc, vc, date, name="comet")
+    >>> earth = KeplerState(re, ve, date, name="Earth")
     >>> 
     >>> # particle generator
     >>> pgen = cs.Coma(comet, date)
@@ -48,10 +48,17 @@ The following examples use this simple coma simulation:
     >>> # generate and integrate particle positions
     >>> integrator = cs.BulirschStoer()
     >>> sim = cs.run(pgen, integrator)
+    [run] Expecting 2000 particles
+    [simulation] Initialized particle array
+    [run] 1000 integrated, ... s/particle, complete at ...
+    [run] 2000 integrated, ... s/particle, complete at ...
+    [run] 2000 particle states integrated
+    [run] Overall, ... seconds per particle
     >>>
     >>> # project particle positions onto the sky
     >>> sim.observer = earth
     >>> sim.observe()
+    [simulation] Observing the simulation from Earth
 
 
 Image the total number of particles
@@ -76,11 +83,11 @@ Create a 60×60 pixel camera with a pixel scale of 1".  Image the total number o
     :show-source-link: False
 
     >>> def plot(camera):
-    >>>     fig, ax = plt.subplots(figsize=(7, 6), dpi=200)
-    >>>     ax.imshow(camera.data, cmap="gray_r", extent=[29, -31, -29, 31], origin="lower")
-    >>>     fig.colorbar(ax.images[0])
-    >>>     plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
-    >>>     plt.tight_layout()
+    ...     fig, ax = plt.subplots(figsize=(7, 6), dpi=200)
+    ...     ax.imshow(camera.data, cmap="gray_r", extent=[29, -31, -29, 31], origin="lower")
+    ...     fig.colorbar(ax.images[0])
+    ...     plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
+    ...     plt.tight_layout()
     >>>
     >>> plot(camera)
 
@@ -104,7 +111,7 @@ Cometsuite contains a simple description for light scattered by particles, `come
     :include-source:
     :show-source-link: False
 
-    >>> scaler = cs.scalers.ScatteredLight(0.63 * u.um)
+    >>> scaler = cs.scalers.ScatteredLight(0.63)
     >>> camera = cs.Camera(shape=(60, 60), scale=(-1, 1), scaler=scaler)
     >>> camera.integrate(sim)
     >>> plot(camera)  # note the change in the colorbar scale
@@ -123,10 +130,9 @@ Particle scalers may be multiplied together to make a `CompositeScaler`.  For ex
 
 .. code::
 
-    >>> scaler = cs.scalers.ScatteredLight(0.63 * u.um) * cs.scalers.ConstantFactor(1e10)
+    >>> scaler = cs.scalers.ScatteredLight(0.63) * cs.scalers.ConstantFactor(1e10)
     >>> scaler
-    ScatteredLight(Quantity("0.63 um"), unit=Unit("W / (um m2)")) * ConstantFactor(10000000000.0)
-
+    CompositeScaler(<ScatteredLight(0.63, unit=Unit("W / (um m2)"))>, <ConstantFactor(10000000000.0)>)
 
 Account for size distribution
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -140,7 +146,7 @@ Simulations can have particles picked from any size distribution, and the above 
     :show-source-link: False
 
     >>> camera.scaler = (
-    ...     cs.scalers.ScatteredLight(0.63 * u.um)
+    ...     cs.scalers.ScatteredLight(0.63)
     ...     * cs.scalers.PSD_RemoveLogBias()
     ...     * cs.scalers.PSD_PowerLaw(-3.5)
     ... )
@@ -148,6 +154,23 @@ Simulations can have particles picked from any size distribution, and the above 
     >>> camera.integrate(sim)
     >>> plot(camera)
 
+
+Calibrating simulation mass
+---------------------------
+
+The `mass_calibration` method can calibrate simulations, with some restrictions.  Ages must be picked from a uniform distribution, and grain radii picked from uniform or Log distributions.  Mass scalers, like `FractalPorosity` are not yet accounted for.
+
+To calibrate our previous simulation to a mass production rate of 1 kg/s:
+
+.. code::
+
+    >>> calib, total_mass = cs.scalers.mass_calibration(sim, camera.scaler, 1 * u.kg / u.s, state_class=KeplerState)
+    >>> calib  # doctest: +FLOAT_CMP
+    8.23486568453617e+17
+    >>> total_mass  # doctest: +FLOAT_CMP
+    <Quantity 432000. kg>
+
+The result is a multiplicative factor to scale your simulated data (e.g., images).  The `state_class` keyword is needed here as the `Simulation` parameter object does not yet track the comet's `State` class, and defaults to using SPICE.
 
 .. automodapi:: cometsuite.instruments
     :headings: -^

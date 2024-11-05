@@ -92,7 +92,7 @@ from copy import copy
 
 import numpy as np
 from numpy import pi
-from scipy.integrate import quad, dblquad
+from scipy.integrate import quad
 from scipy.interpolate import splrep, splev
 
 import astropy.units as u
@@ -313,8 +313,8 @@ class ParameterWeight(Scaler):
         return p[self.key]
 
 
-class MassScaler(Scaler, abc.ABC):
-    """A scaler that affects particle mass."""
+class MassScaler(Scaler):
+    """Abstract base class for scalers that affect particle mass."""
 
 
 class FractalPorosity(MassScaler):
@@ -356,7 +356,7 @@ class FractalPorosity(MassScaler):
         return (p.radius / self.a0) ** (self.D - 3.0)
 
 
-class ProductionRateScaler(Scaler, abc.ABC):
+class ProductionRateScaler(Scaler):
     """Abstract base class for production rate scale factors."""
 
     @abc.abstractmethod
@@ -455,7 +455,7 @@ $Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
         return sc
 
 
-class PSDScaler(Scaler, abc.ABC):
+class PSDScaler(Scaler):
     """Abstract base class for particle size distribution factors."""
 
     @abc.abstractmethod
@@ -518,11 +518,10 @@ class PSD_Hanner(PSDScaler):
         )
 
     def scale(self, p):
-        return (
-            self.Np
-            * (1 - self.a0 / p.radius) ** self.M
-            * (self.a0 / p.radius) ** self.N
-        )
+        return self.scale_a(p.radius)
+
+    def scale_a(self, a):
+        return self.Np * (1 - self.a0 / a) ** self.M * (self.a0 / a) ** self.N
 
 
 class PSD_BrokenPowerLaw(PSDScaler):
@@ -591,7 +590,7 @@ class PSD_BrokenPowerLaw(PSDScaler):
 
 
 class PSD_PowerLawLargeScaled(PSDScaler):
-    """Power-law particle size distribuion with enhanced large particles.
+    """Power-law particle size distribution with enhanced large particles.
 
     n(a) = N1 * a**N
 
@@ -648,7 +647,7 @@ class PSD_PowerLawLargeScaled(PSDScaler):
 
 
 class PSD_PowerLaw(PSDScaler):
-    """Power law particle size distribuion.
+    """Power law particle size distribution.
 
     n(a) = N1 * a**N
 
@@ -750,8 +749,8 @@ class PSD_RemoveLogBias(PSDScaler):
         return self.N0 * a
 
 
-class LightScaler(Scaler, abc.ABC):
-    """Scalers that affect the amount of light emitted from a particle."""
+class LightScaler(Scaler):
+    """Abstract base class for scalers that affect the amount of light."""
 
 
 class ScatteredLight(LightScaler):
@@ -919,8 +918,8 @@ class ThermalEmission(LightScaler):
         return Q * sigma * B / p.Delta**2
 
 
-class EjectionDirectionScaler(Scaler, abc.ABC):
-    """Scaler that is based on the ejection direction."""
+class EjectionDirectionScaler(Scaler):
+    """Abstract base class for scalers that are based on ejection direction."""
 
 
 class ActiveArea(EjectionDirectionScaler):
@@ -1247,8 +1246,8 @@ class GaussianActiveArea(ActiveArea):
         return scale
 
 
-class EjectionSpeedScaler(Scaler, abc.ABC):
-    """ "Scaler that affects the ejection speed"""
+class EjectionSpeedScaler(Scaler):
+    """Abstract base class for scalers that affect the ejection speed."""
 
 
 class SpeedLimit(EjectionSpeedScaler):
@@ -1474,6 +1473,10 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
         The calibration factor for the simulation to place simulation particles
         in units of coma particles.
 
+    total_mass : float
+        The total expected mass of the simulation, given ``Q0(rh(t0))`` and
+        ``scaler``.
+
 
     Notes
     -----
@@ -1543,9 +1546,17 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     )
 
     # get particle size distribution scalers and constant factors (it may be
-    # arbitrary where we account for constant factors)
+    # arbitrary where we account for constant factors), do not include
+    # PDS_RemoveLogBias
     psd_scaler = CompositeScaler(
-        *[s for s in _scaler if (isinstance(s, (PSDScaler, ConstantFactor)))]
+        *[
+            s
+            for s in _scaler
+            if (
+                isinstance(s, (PSDScaler, ConstantFactor))
+                and not isinstance(s, PSD_RemoveLogBias)
+            )
+        ]
     )
 
     # density
@@ -1569,9 +1580,10 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     gen = eval("csg." + sim.params["pfunc"]["radius"])
     arange_sim = np.array((gen.min(), gen.max()))
     points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
+    psd_norm = 1 / arange_sim.ptp()
 
-    # mean particle mass of the simulation, picked from a uniform distribution
-    m_p = (quad(mass, *arange_sim, points=points)[0] / arange_sim.ptp()) * u.kg
+    # mean particle mass of the simulation
+    m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
 
     gen = eval("csg." + sim.params["pfunc"]["age"])
     trange_sim = np.array((gen.min(), gen.max())) * 86400  # s
@@ -1587,4 +1599,4 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
 
-    return (M / M_sim).to_value(u.dimensionless_unscaled)
+    return (M / M_sim).to_value(u.dimensionless_unscaled), M

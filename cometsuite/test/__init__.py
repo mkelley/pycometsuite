@@ -3,10 +3,16 @@ import astropy.units as u
 from astropy.time import Time
 from mskpy import KeplerState
 from .. import integrator, particle, rundynamics, generators
+from ..integrator.core import Integrator
+
+
+class Dummy(Integrator):
+    def integrate(self, init, dt, beta=0):
+        return init
 
 
 @pytest.fixture(scope="session")
-def sim_no_gravity():
+def sim_radius_uniform():
     """
     {'box': -1,
      'comet': {'kernel': 'None',
@@ -64,6 +70,49 @@ def sim_no_gravity():
     pgen.nparticles = 2000
 
     sim = rundynamics.run(pgen, integrator.BulirschStoer(), seed=24)
+    sim.observer = KeplerState([0, u.au.to("km"), 0], [30, 0, 0], sim.params["date"])
+    sim.observe()
+
+    return sim
+
+
+@pytest.fixture(scope="session")
+def sim_radius_log():
+    date = Time("2024-11-01")
+    comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+
+    pgen = particle.Coma(
+        comet,
+        date,
+    )
+    pgen.composition = particle.Geometric()
+    pgen.radius = generators.Log(-1, 1)
+    pgen.age = generators.Uniform(0, 100)
+    pgen.nparticles = 2000
+
+    sim = rundynamics.run(pgen, integrator.BulirschStoer(), seed=24)
+    sim.observer = KeplerState([0, u.au.to("km"), 0], [30, 0, 0], sim.params["date"])
+    sim.observe()
+
+    return sim
+
+
+@pytest.fixture(scope="session")
+def sim_radius_log_big():
+    """More particles: takes about 1 min to generate."""
+    date = Time("2024-11-01")
+    comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+
+    pgen = particle.Coma(
+        comet,
+        date,
+    )
+    pgen.composition = particle.Geometric()
+    pgen.radius = generators.Log(-1, 4)
+    pgen.age = generators.Uniform(0, 100)
+    pgen.nparticles = 100000
+
+    sim = rundynamics.run(pgen, Dummy(), seed=25)
     sim.observer = KeplerState([0, u.au.to("km"), 0], [30, 0, 0], sim.params["date"])
     sim.observe()
 
