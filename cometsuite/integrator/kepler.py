@@ -18,13 +18,15 @@ class Kepler(Integrator):
 
     The default behavior is for orbits around the Sun.
 
+
     Parameters
     ----------
     M : float or Quantity, optional
-      Mass of the central object.  [float: kg]
+        Mass of the central object.  [float: kg]
+
     GM : float or Quantity, optional
-      Gravitational constant times the mass of the central
-      object. [float: km**3/s**2]
+        Gravitational constant times the mass of the central
+        object. [float: km**3/s**2]
 
     """
 
@@ -36,8 +38,8 @@ class Kepler(Integrator):
         else:
             self.GM = GM
 
-    def __str__(self):
-        return "Kepler(GM={})".format(self.GM)
+    def _parameter_string(self):
+        return f"GM={self.GM}"
 
     @property
     def M(self):
