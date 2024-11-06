@@ -27,7 +27,7 @@ syndynes
 __all__ = ["Particle", "Coma", "AmorphousCarbon", "Geometric", "syndynes"]
 
 import numpy as np
-from scipy.interpolate import interp2d
+from scipy.interpolate import RegularGridInterpolator
 
 
 class Particle(object):
@@ -538,8 +538,10 @@ class AmorphousCarbon(Composition):
         data = np.loadtxt(__path__[0] + "/data/amcarbon-qpr.dat")
         self._p = data[0, 1:]
         self._a = data[1:, 0]
-        self._qpr = data[1:, 1:]
-        self._interp = interp2d(self._p, self._a, self._qpr)
+        self._qpr = data[1:, 1:].T
+        self._interp = RegularGridInterpolator(
+            (self._p, self._a), self._qpr, method="linear", bounds_error=True
+        )
 
     def __str__(self):
         return "AmorphousCarbon()".format()
@@ -562,7 +564,7 @@ class AmorphousCarbon(Composition):
         qpr : float or ndarray
 
         """
-        return self._interp(porosity, radius)
+        return self._interp((porosity, radius))
 
     def beta(self, radius, porosity):
         """Radiation pressure beta parameter.
