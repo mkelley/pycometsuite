@@ -29,18 +29,18 @@ InvalidDistribution
 """
 
 __all__ = [
-    'CosineAngle',
-    'Delta',
-    'Grid',
-    'Log',
-    'Normal',
-    'Sequence',
-    'Uniform',
-    'UniformAngle',
-
-    'Isotropic',
-    'UniformLatitude',
-    'Sunward']
+    "CosineAngle",
+    "Delta",
+    "Grid",
+    "Log",
+    "Normal",
+    "Sequence",
+    "Uniform",
+    "UniformAngle",
+    "Isotropic",
+    "UniformLatitude",
+    "Sunward",
+]
 
 from abc import ABC, ABCMeta, abstractmethod
 import numpy as np
@@ -106,9 +106,11 @@ class CosineAngle(Generator):
 
     def next(self, N=1):
         from numpy.random import rand
+
         u = rand(N)
-        u = np.arccos(np.sqrt((1 - u) * np.cos(self.x0)**2
-                              + u * np.cos(self.x1)**2))
+        u = np.arccos(
+            np.sqrt((1 - u) * np.cos(self.x0) ** 2 + u * np.cos(self.x1) ** 2)
+        )
         return u[0] if N == 1 else u
 
     __doc__ = Generator.next.__doc__
@@ -153,23 +155,31 @@ class Delta(Generator):
 class Grid(Generator):
     """Variate picked from a uniform grid.
 
+
     Parameters
     ----------
     x0 : float
-      The start value of the sequence.
+        The start value of the sequence.
+
     x1 : float
-      The end value of the sequence.
+        The end value of the sequence.
+
     num : int
-      The number of samples to generate.
+        The number of samples to generate.
+
     endpoint : bool, optional
-      If `True`, `x1` is the last sample.
+        If `True`, `x1` is the last sample.
+
     log : bool, optional
-      Set to `True` if `x0`, `x1`, and the spacing are in log space.
+        Set to `True` if `x0`, `x1`, and the spacing are in log space.
+
     cycle : int or float('inf'), optional
-      Cylce over the sequence `cycle` times.  Set to `inf` to
-      infintely cycle over the sequence.
+        Cycle over the sequence `cycle` times.  Set to `inf` to infinitely cycle
+        over the sequence.
+
     repeat : int, optional
-      Repeat each element `repeat` times.
+        Repeat each element `repeat` times.
+
 
     Returns
     -------
@@ -179,8 +189,8 @@ class Grid(Generator):
     """
 
     def __init__(self, x0, x1, num, endpoint=True, log=False, cycle=1, repeat=1):
-        self._x0 = x0
-        self._x1 = x1
+        self.x0 = x0
+        self.x1 = x1
         self._num = num
         self._endpoint = endpoint
         self._cycle = cycle
@@ -198,15 +208,21 @@ class Grid(Generator):
         self.i = -1
 
     def __str__(self):
-        return ("Grid({}, {}, {}, endpoint={}, log={}, cycle={}, repeat={})"
-                .format(self._x0, self._x1, self._num, self._endpoint,
-                        self._log, self._cycle, self._repeat))
+        return "Grid({}, {}, {}, endpoint={}, log={}, cycle={}, repeat={})".format(
+            self.x0,
+            self.x1,
+            self._num,
+            self._endpoint,
+            self._log,
+            self._cycle,
+            self._repeat,
+        )
 
     def min(self):
-        return self.x0
+        return min(self.x0, self.x1)
 
     def max(self):
-        return self.x1
+        return max(self.x0, self.x1)
 
     def __next__(self):
         self.i += 1
@@ -251,8 +267,8 @@ class Log(Generator):
 
     def next(self, N=1):
         from numpy.random import rand
-        x = np.exp((rand(N) * (self.x1 - self.x0) + self.x0)
-                   * 2.3025850929940459)
+
+        x = np.exp((rand(N) * (self.x1 - self.x0) + self.x0) * 2.3025850929940459)
         return x[0] if N == 1 else x
 
     __doc__ = Generator.next.__doc__
@@ -281,7 +297,7 @@ class Normal(Generator):
 
     """
 
-    def __init__(self, mu=0, sigma=1, x0=-float('inf'), x1=float('inf')):
+    def __init__(self, mu=0, sigma=1, x0=-float("inf"), x1=float("inf")):
         self.mu = mu
         self.sigma = sigma
         self.x0 = x0
@@ -289,7 +305,8 @@ class Normal(Generator):
 
     def __str__(self):
         return "Normal(mu={}, sigma={}, x0={}, x1={})".format(
-            self.mu, self.sigma, self.x0, self.x1)
+            self.mu, self.sigma, self.x0, self.x1
+        )
 
     def min(self):
         return self.x0
@@ -305,8 +322,10 @@ class Normal(Generator):
             if (u >= self.x0) and (u <= self.x1):
                 break
         else:
-            raise ValueError("Variate limits are too restrictive:"
-                             " no good values in 10,000 iterations.")
+            raise ValueError(
+                "Variate limits are too restrictive:"
+                " no good values in 10,000 iterations."
+            )
         return u
 
     def next(self, N=1):
@@ -348,8 +367,10 @@ class Sequence(Generator):
 
     def __str__(self):
         return "Sequence({}, cycle={}, repeat={})".format(
-            np.array2string(self._seq, max_line_width=32768, separator=','),
-            self.cycle, self._repeat)
+            np.array2string(self._seq, max_line_width=32768, separator=","),
+            self.cycle,
+            self._repeat,
+        )
 
     def min(self):
         return min(self._seq)
@@ -403,6 +424,7 @@ class Uniform(Generator):
 
     def next(self, N=1):
         from numpy.random import rand
+
         x = rand(N) * (self.x1 - self.x0) + self.x0
         return x[0] if N == 1 else x
 
@@ -445,6 +467,7 @@ class UniformAngle(Generator):
 
     def next(self, N=1):
         from numpy.random import rand
+
         u = rand(N)
         u = np.arccos((1 - u) * np.cos(self.x0) + u * np.cos(self.x1))
         return u[0] if N == 1 else u
@@ -513,8 +536,15 @@ class Vej(Generator, metaclass=ABCMeta):
 
     """
 
-    def __init__(self, pole=None, body_basis=None, w=None,
-                 distribution='uniformangle', theta_dist=None, phi_dist=None):
+    def __init__(
+        self,
+        pole=None,
+        body_basis=None,
+        w=None,
+        distribution="uniformangle",
+        theta_dist=None,
+        phi_dist=None,
+    ):
         from .state import State
 
         if body_basis is None:
@@ -529,14 +559,14 @@ class Vej(Generator, metaclass=ABCMeta):
 
         if w is not None:
             self.phi_dist = Uniform(x0=0, x1=2 * np.pi)
-            if distribution.lower() == 'uniformangle':
+            if distribution.lower() == "uniformangle":
                 self.theta_dist = UniformAngle(x0=0, x1=w / 2.0)
-            elif distribution.lower() == 'normal':
-                self.theta_dist = Normal(
-                    x0=0, mu=0, sigma=w / 2.35)
+            elif distribution.lower() == "normal":
+                self.theta_dist = Normal(x0=0, mu=0, sigma=w / 2.35)
             else:
-                raise InvalidDistribution("Only 'UniformAngle' and 'Normal'"
-                                          " are implemented for w != None.")
+                raise InvalidDistribution(
+                    "Only 'UniformAngle' and 'Normal'" " are implemented for w != None."
+                )
         else:
             if theta_dist is None:
                 self.theta_dist = Delta(0)
@@ -609,11 +639,17 @@ class Vej(Generator, metaclass=ABCMeta):
                 x = np.cross((0, 1.0, 0), z)
                 x /= np.sqrt(np.dot(x, x))
         else:
-            x = vernal_eq if len(vernal_eq) == 3 else util.lb2xyz(
-                *np.radians(vernal_eq))
+            x = (
+                vernal_eq
+                if len(vernal_eq) == 3
+                else util.lb2xyz(*np.radians(vernal_eq))
+            )
             c = np.dot(x, z)
             assert np.isclose(
-                c, 0), 'Pole and vernal equinox must be perpendicular to each other, angle is {} rad'.format(np.arccos(c))
+                c, 0
+            ), "Pole and vernal equinox must be perpendicular to each other, angle is {} rad".format(
+                np.arccos(c)
+            )
 
         y = np.cross(z, x)
         y /= np.sqrt(np.dot(y, y))
@@ -660,9 +696,9 @@ class Vej(Generator, metaclass=ABCMeta):
         phi = self.phi_dist.next(N)
 
         # for polar angle:
-        r = np.c_[np.cos(phi) * np.sin(theta),
-                  np.sin(phi) * np.sin(theta),
-                  np.cos(theta)]
+        r = np.c_[
+            np.cos(phi) * np.sin(theta), np.sin(phi) * np.sin(theta), np.cos(theta)
+        ]
 
         i = np.isclose(theta, 0)
         if np.any(i):
@@ -676,16 +712,18 @@ class Vej(Generator, metaclass=ABCMeta):
 
         # derive origin by projecting v onto body frame
         p = (self.body_basis * v[:, np.newaxis]).sum(2)
-        origin = np.degrees(np.c_[
-            np.arctan2(p[:, 1], p[:, 0]),
-            np.arctan2(p[:, 2], np.sqrt(p[:, 0]**2 + p[:, 1]**2))
-        ])
+        origin = np.degrees(
+            np.c_[
+                np.arctan2(p[:, 1], p[:, 0]),
+                np.arctan2(p[:, 2], np.sqrt(p[:, 0] ** 2 + p[:, 1] ** 2)),
+            ]
+        )
         return v, origin
 
 
 class Isotropic(Vej):
     def __init__(self):
-        Vej.__init__(self, w=2 * np.pi, distribution='UniformAngle')
+        Vej.__init__(self, w=2 * np.pi, distribution="UniformAngle")
         self._axis = np.array([1.0, 0.0, 0.0])
 
     def axis(self, init):
@@ -705,9 +743,9 @@ class Isotropic(Vej):
 
     __doc__ = ["Isotropic emission."]
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[1:doc.index('    Parameters')])
-    __doc__.extend(doc[doc.index('    Attributes'):])
-    __doc__ = '\n'.join(__doc__)
+    __doc__.extend(doc[1 : doc.index("    Parameters")])
+    __doc__.extend(doc[doc.index("    Attributes") :])
+    __doc__ = "\n".join(__doc__)
     del doc
 
 
@@ -730,8 +768,7 @@ class ActiveArea(Vej):
         self.w = w
         self.ll = ll
 
-        Vej.__init__(self, pole=self.ll, w=np.radians(w),
-                     distribution='uniformangle')
+        Vej.__init__(self, pole=self.ll, w=np.radians(w), distribution="uniformangle")
 
     def axis(self, init):
         """The axis of symmetry is the active area center.
@@ -746,13 +783,12 @@ class ActiveArea(Vej):
         return self.body_basis[2]
 
     def __str__(self):
-        return "ActiveArea({}, {})".format(
-            self.w, self.ll)
+        return "ActiveArea({}, {})".format(self.w, self.ll)
 
     __doc__ = __doc__.splitlines()
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[doc.index('    Attributes'):])
-    __doc__ = '\n'.join(__doc__)
+    __doc__.extend(doc[doc.index("    Attributes") :])
+    __doc__ = "\n".join(__doc__)
     del doc
 
 
@@ -783,8 +819,13 @@ class UniformLatitude(Vej):
         phi_dist = Uniform(x0=0, x1=2 * np.pi)
         prange = np.pi / 2 - np.array(lrange)  # convert to polar angle
         theta_dist = UniformAngle(x0=min(prange), x1=max(prange))
-        Vej.__init__(self, pole=pole, body_basis=body_basis,
-                     phi_dist=phi_dist, theta_dist=theta_dist)
+        Vej.__init__(
+            self,
+            pole=pole,
+            body_basis=body_basis,
+            phi_dist=phi_dist,
+            theta_dist=theta_dist,
+        )
 
     def axis(self, init):
         """The axis of symmetry is the pole.
@@ -800,13 +841,15 @@ class UniformLatitude(Vej):
 
     def __str__(self):
         return "UniformLatitude(body_basis={}, theta_dist={}, phi_dist={})".format(
-            np.array2string(self.body_basis, separator=','),
-            self.theta_dist, self.phi_dist)
+            np.array2string(self.body_basis, separator=","),
+            self.theta_dist,
+            self.phi_dist,
+        )
 
     __doc__ = __doc__.splitlines()
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[doc.index('    Attributes'):])
-    __doc__ = '\n'.join(__doc__)
+    __doc__.extend(doc[doc.index("    Attributes") :])
+    __doc__ = "\n".join(__doc__)
     del doc
 
 
@@ -845,12 +888,17 @@ class Sunward(Vej):
         return -hat
 
     def __str__(self):
-        return ("Sunward(body_basis={}, w={}, distribution='{}',"
-                " theta_dist={}, phi_dist={})".format(
-                    np.array2string(self.body_basis, separator=','),
-                    self._w, self._distribution,
-                    self.theta_dist, self.phi_dist))
+        return (
+            "Sunward(body_basis={}, w={}, distribution='{}',"
+            " theta_dist={}, phi_dist={})".format(
+                np.array2string(self.body_basis, separator=","),
+                self._w,
+                self._distribution,
+                self.theta_dist,
+                self.phi_dist,
+            )
+        )
 
     __doc__ = ["Ejection velocity cone centered on the sunward vector."]
-    __doc__.extend(Vej.__doc__.split('\n')[1:])
-    __doc__ = '\n'.join(__doc__)
+    __doc__.extend(Vej.__doc__.split("\n")[1:])
+    __doc__ = "\n".join(__doc__)
