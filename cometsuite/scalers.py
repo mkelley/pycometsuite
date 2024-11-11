@@ -259,7 +259,7 @@ class UnityScaler(Scaler):
         return "UnityScaler()"
 
     def scale(self, p):
-        return np.ones(len(p))
+        return np.ones_like(p.radius)
 
     def scale_a(self, a):
         return np.ones_like(a)
@@ -1480,14 +1480,14 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     Notes
     -----
+                             ∫∫ m(a) dn/da dm/dt da dt
+    mean particle mass, m_p: -------------------------
+                                      ∫∫ da dt
 
-    simulation picked from uniform distribution
+    where dn/da is the desired differential particle size distribution, and
+    dm/dt is the desired mass loss rate.
 
-    mean particle mass, m_p: ∫dn/da * m(a) da / ∫da
-
-    total number of particles: n *
-
-    total expected mass, M: ∫dm/dt dt = total expected mass = M
+    total expected mass, M: ∫ dm/dt dt = total expected mass
 
     --> C = m_p * n / M
 
@@ -1579,11 +1579,14 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     gen = eval("csg." + sim.params["pfunc"]["radius"])
     arange_sim = np.array((gen.min(), gen.max()))
-    points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
-    psd_norm = 1 / arange_sim.ptp()
 
     # mean particle mass of the simulation
-    m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
+    if arange_sim.ptp() == 0:
+        m_p = np.squeeze(mass(arange_sim[0])) * u.kg
+    else:
+        points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
+        psd_norm = 1 / arange_sim.ptp()
+        m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
 
     gen = eval("csg." + sim.params["pfunc"]["age"])
     trange_sim = np.array((gen.min(), gen.max())) * 86400  # s

@@ -158,7 +158,7 @@ Simulations can have particles picked from any size distribution, and the above 
 Calibrating simulation mass
 ---------------------------
 
-The `mass_calibration` method can calibrate simulations, with some restrictions.  Ages must be picked from a uniform distribution, and grain radii picked from uniform or Log distributions.  Mass scalers, like `FractalPorosity` are not yet accounted for.
+The `mass_calibration` method can calibrate simulations, with some restrictions.  Ages must be picked from a uniform distribution, and grain radii picked from uniform or Log distributions.
 
 To calibrate our previous simulation to a mass production rate of 1 kg/s:
 

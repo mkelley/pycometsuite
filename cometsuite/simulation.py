@@ -252,10 +252,8 @@ class Simulation(object):
         if isinstance(k, str):
             return setattr(self, k, v)
         else:
-            rec = ()
-            for i in self.particles.dtype.names:
-                rec += (v[i],)
-            self.particles[k] = rec
+            for field in self.particles.dtype.names:
+                self.particles[k][field] = v[field]
 
     def __len__(self):
         return len(self.particles)
