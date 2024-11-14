@@ -89,6 +89,7 @@ __all__ = [
 
 import abc
 from copy import copy
+from collections import UserList
 
 import numpy as np
 from numpy import pi
@@ -147,7 +148,7 @@ class Scaler(abc.ABC):
         return 1.0
 
 
-class CompositeScaler(Scaler):
+class CompositeScaler(Scaler, UserList):
     """A collection of multiple scale factors.
 
     To create a `CompositeScaler`::
@@ -157,7 +158,7 @@ class CompositeScaler(Scaler):
 
     To remove the `SpeedRh` scale::
 
-        del total_scale.scales[0]
+        del total_scale[0]
 
     A length-one `CompositeScaler` may also be created::
 
@@ -179,19 +180,20 @@ class CompositeScaler(Scaler):
     """
 
     def __init__(self, *scales):
-        self.scales = []
+        scales = []
         for sc in scales:
             if isinstance(sc, UnityScaler):
                 pass
             elif isinstance(sc, CompositeScaler):
-                self.scales.extend([s.copy() for s in sc])
+                scales.extend([s.copy() for s in sc])
             elif isinstance(sc, Scaler):
                 # must test after CompositeScaler
-                self.scales.append(sc.copy())
+                scales.append(sc.copy())
             elif isinstance(sc, (float, int)):
-                self.scales.append(ConstantFactor(sc))
+                scales.append(ConstantFactor(sc))
             else:
                 raise InvalidScaler(sc)
+        super().__init__(scales)
 
     def __mul__(self, scale):
         result = self.copy()
@@ -200,11 +202,11 @@ class CompositeScaler(Scaler):
 
     def __imul__(self, scale):
         if isinstance(scale, Scaler):
-            self.scales.append(scale)
-        elif isinstance(scale, CompositeScaler):
-            self.scales.extend(scale.scales)
+            self.append(scale)
+        elif isinstance(scale, (CompositeScaler, list, tuple)):
+            self.extend(scale)
         elif isinstance(scale, (float, int)):
-            self.scales.append(ConstantFactor(scale))
+            self.append(ConstantFactor(scale))
         else:
             raise InvalidScaler(scale)
 
@@ -217,33 +219,27 @@ class CompositeScaler(Scaler):
         if len(self) == 0:
             return str(UnityScaler())
         else:
-            return " * ".join([str(s) for s in self.scales])
-
-    def __len__(self):
-        return len(self.scales)
-
-    def __iter__(self):
-        yield from self.scales
+            return " * ".join([str(s) for s in self])
 
     def formula(self):
-        return [s.formula() for s in self.scales]
+        return [s.formula() for s in self]
 
     def scale(self, p):
         c = 1.0
-        for s in self.scales:
+        for s in self:
             c = c * s.scale(p)
         return c
 
     def scale_a(self, a):
         c = 1.0
-        for s in self.scales:
+        for s in self:
             if hasattr(s, "scale_a"):
                 c = c * s.scale_a(a)
         return c
 
     def scale_rh(self, rh):
         c = 1.0
-        for s in self.scales:
+        for s in self:
             if hasattr(s, "scale_rh"):
                 c = c * s.scale_rh(rh)
         return c
@@ -1470,8 +1466,8 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     Returns
     -------
     calib : float
-        The calibration factor for the simulation to place simulation particles
-        in units of coma particles.
+        The multiplicative calibration factor to scale simulation particles into
+        coma particles with the given dust production loss rate.
 
     total_mass : float
         The total expected mass of the simulation, given ``Q0(rh(t0))`` and
