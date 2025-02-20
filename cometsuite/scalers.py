@@ -193,7 +193,7 @@ class CompositeScaler(Scaler, UserList):
                 scales.append(ConstantFactor(sc))
             else:
                 raise InvalidScaler(sc)
-        super(UserList).__init__(scales)
+        super(Scaler, self).__init__(scales)
 
     def __mul__(self, scale):
         result = self.copy()
