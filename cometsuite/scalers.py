@@ -50,7 +50,7 @@ SpeedRh
 Functions
 ---------
 flux_scaler
-mass_calibrate
+mass_calibration
 
 
 Exceptions
