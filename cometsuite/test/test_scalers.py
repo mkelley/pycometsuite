@@ -12,7 +12,9 @@ from . import sim_radius_uniform, sim_radius_log, sim_radius_log_big
 
 def get_sim_comet(sim):
     comet = KeplerState(
-        sim.params["comet"]["r"], sim.params["comet"]["v"], sim.params["date"]
+        sim.params["comet"]["r"],
+        sim.params["comet"]["v"],
+        sim.params["date"],
     )
     return comet
 

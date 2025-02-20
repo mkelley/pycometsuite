@@ -32,3 +32,4 @@ write_to = "cometsuite/_version.py"
 
 [project.optional-dependencies]
 docs = ["sphinx>=1.3", "sphinx-automodapi", "numpydoc"]
+test = ["pytest"]
