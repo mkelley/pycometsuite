@@ -1577,16 +1577,16 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     arange_sim = np.array((gen.min(), gen.max()))
 
     # mean particle mass of the simulation
-    if arange_sim.ptp() == 0:
+    if np.ptp(arange_sim) == 0:
         m_p = np.squeeze(mass(arange_sim[0])) * u.kg
     else:
         points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
-        psd_norm = 1 / arange_sim.ptp()
+        psd_norm = 1 / np.ptp(arange_sim)
         m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
 
     gen = eval("csg." + sim.params["pfunc"]["age"])
     trange_sim = np.array((gen.min(), gen.max())) * 86400  # s
-    x = quad(relative_production_rate, *trange_sim)[0] / (trange_sim.ptp())
+    x = quad(relative_production_rate, *trange_sim)[0] / (np.ptp(trange_sim))
 
     M_sim = n * m_p * x
 
