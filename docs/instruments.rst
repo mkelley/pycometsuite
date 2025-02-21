@@ -164,7 +164,7 @@ To calibrate our previous simulation to a mass production rate of 1 kg/s:
 
 .. code::
 
-    >>> calib, total_mass = cs.scalers.mass_calibration(sim, camera.scaler, 1 * u.kg / u.s, state_class=KeplerState)
+    >>> calib, total_mass = cs.mass_calibration(sim, camera.scaler, 1 * u.kg / u.s, state_class=KeplerState)
     >>> calib  # doctest: +FLOAT_CMP
     8.23486568453617e+17
     >>> total_mass  # doctest: +FLOAT_CMP
