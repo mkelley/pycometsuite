@@ -3,6 +3,7 @@ import astropy.units as u
 from astropy.time import Time
 from mskpy import KeplerState
 from .. import integrator, particle, rundynamics, generators
+from ..simulation import Simulation
 from ..integrator.core import Integrator
 
 
@@ -12,7 +13,7 @@ class Dummy(Integrator):
 
 
 @pytest.fixture(scope="session")
-def sim_radius_uniform():
+def sim_radius_uniform() -> Simulation:
     """
     {'box': -1,
      'comet': {'kernel': 'None',
@@ -77,7 +78,7 @@ def sim_radius_uniform():
 
 
 @pytest.fixture(scope="session")
-def sim_radius_log():
+def sim_radius_log() -> Simulation:
     date = Time("2024-11-01")
     comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
 
@@ -98,7 +99,7 @@ def sim_radius_log():
 
 
 @pytest.fixture(scope="session")
-def sim_radius_log_big():
+def sim_radius_log_big() -> Simulation:
     """More particles: takes about 1 min to generate."""
     date = Time("2024-11-01")
     comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
