@@ -454,7 +454,14 @@ class Composition(object):
         self.Qpr = Qpr
 
     def beta(self, radius, porosity):
-        """Radiation pressure beta parameter.
+        r"""Radiation pressure (beta) parameter.
+
+        .. math::
+
+            \beta = \frac{0.57 Q_{pr}}{a \rho}
+
+        Where :math:`Q_{pr}` is the radiation pressure efficiency factor,
+        :math:`a` is the radius, and :math:`\rho` is the mass density.
 
 
         Parameters
@@ -475,7 +482,7 @@ class Composition(object):
 
         numerator = self.Qpr(radius) * 0.57
         denominator = np.array(radius) * (1 - np.array(porosity)) * self.rho0
-        if len(denominator) > 1:
+        if np.size(denominator) > 1:
             i = denominator <= 0
             numerator[i] = 0
             denominator[i] = 1
