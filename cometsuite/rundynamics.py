@@ -9,10 +9,16 @@ run
 
 """
 
+import time
+from typing import Union
 import numpy as np
+from .xyzfile import XYZFile
+from .simulation import Simulation
 
 
-def run(pgen, integrator, xyzfile=None, limit=None, seed=None):
+def run(
+    pgen, integrator, xyzfile=None, limit=None, seed=None
+) -> Union[Simulation, int]:
     """Generate and integrate particle states.
 
     `run` will respect `pgen.nparticles`, therefore it must be correctly set.
@@ -49,11 +55,6 @@ def run(pgen, integrator, xyzfile=None, limit=None, seed=None):
         When `xyzfile` is `None`, the results are returned as a `Simulation`.
 
     """
-
-    import time
-    from .xyzfile import XYZFile
-    from .particle import Particle
-    from .state import State
 
     np.random.seed(seed)
 
