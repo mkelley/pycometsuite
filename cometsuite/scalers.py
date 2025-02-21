@@ -193,6 +193,7 @@ class CompositeScaler(Scaler, UserList):
                 _scales.append(ConstantFactor(sc))
             else:
                 raise InvalidScaler(sc)
+
         super(Scaler, self).__init__(_scales)
 
     def __mul__(self, scale):
@@ -1598,5 +1599,4 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
 
-    breakpoint()
     return (M / M_sim).to_value(u.dimensionless_unscaled), M
