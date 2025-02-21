@@ -19,6 +19,25 @@ def get_sim_comet(sim):
     return comet
 
 
+def test_constant_factor(sim_radius_uniform):
+    s = sc.ConstantFactor(10)
+    p = sim_radius_uniform.particles
+    assert all(s.scale(p) == 10)
+
+
+def test_unity_scaler(sim_radius_uniform):
+    s = sc.UnityScaler()
+    p = sim_radius_uniform.particles
+    assert all(s.scale(p) == 1)
+
+
+class TestCompositeScaler:
+    def test_init(self, sim_radius_uniform):
+        s = sc.CompositeScaler(sc.ConstantFactor(10), sc.ConstantFactor(2))
+        p = sim_radius_uniform.particles
+        assert all(s.scale(p) == 20)
+
+
 class TestMassCalibration:
     def test_simple_examples(self):
         def create_sim(pgen):
@@ -29,12 +48,6 @@ class TestMassCalibration:
                 sim[i] = p
             return sim
 
-        # calibrate to 1 kg/s = 86400 kg / day
-        Q0 = 1 * u.kg / u.s
-
-        # one 1 um grain in 1 day:
-        #     mass = 6.283185307179585e-15 kg
-        #     calibration = 86400 / 6.283185307179585e-15 = 1.375098708313976e+19
         date = Time("2024-11-01")
         comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
         pgen = Coma(comet, date)
@@ -46,9 +59,18 @@ class TestMassCalibration:
 
         sim = create_sim(pgen)
         scaler = sc.UnityScaler()
+
+        # calibrate to 1 kg/s = 86400 kg / day
+        Q0 = 1 * u.kg / u.s
         C, M = sc.mass_calibration(sim, scaler, Q0, state_class=KeplerState)
 
+        # the simulation is 1 day long --> 86400 kg expected
         assert np.isclose(M.to_value("kg"), 86400)
+
+        # one 1 um grain in 1 day:
+        #     mass = 4 / 3 * pi * (1 * u.um)**3 * 1.5 * u.g / u.cm**3
+        #          = 6.283185307179585e-15 kg
+        #     calibration = 86400 / 6.283185307179585e-15 = 1.375098708313976e+19
         assert np.isclose(C, 1.375098708313976e19)
 
         # three grains, picked uniformly from 0.1 to 1

@@ -102,8 +102,8 @@ from sbpy.calib import Sun
 from mskpy import getspiceobj, cal2time, planck, KeplerState
 
 from . import util
-from . import generators as csg
-from . import particle
+from . import generators as csg  # noqa: F401
+from . import particle  # noqa: F401
 from . import particle as csp
 
 
@@ -180,20 +180,20 @@ class CompositeScaler(Scaler, UserList):
     """
 
     def __init__(self, *scales):
-        scales = []
+        _scales = []
         for sc in scales:
             if isinstance(sc, UnityScaler):
                 pass
             elif isinstance(sc, CompositeScaler):
-                scales.extend([s.copy() for s in sc])
+                _scales.extend([s.copy() for s in sc])
             elif isinstance(sc, Scaler):
                 # must test after CompositeScaler
-                scales.append(sc.copy())
+                _scales.append(sc.copy())
             elif isinstance(sc, (float, int)):
-                scales.append(ConstantFactor(sc))
+                _scales.append(ConstantFactor(sc))
             else:
                 raise InvalidScaler(sc)
-        super(Scaler, self).__init__(scales)
+        super(Scaler, self).__init__(_scales)
 
     def __mul__(self, scale):
         result = self.copy()
@@ -1598,4 +1598,5 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
 
+    breakpoint()
     return (M / M_sim).to_value(u.dimensionless_unscaled), M
