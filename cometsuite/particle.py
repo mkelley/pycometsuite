@@ -30,7 +30,7 @@ import numpy as np
 from scipy.interpolate import RegularGridInterpolator
 
 
-class Particle(object):
+class Particle:
     """A particle.
 
     Parameters
