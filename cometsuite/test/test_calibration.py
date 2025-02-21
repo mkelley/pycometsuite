@@ -72,27 +72,39 @@ class TestMassCalibration:
         assert np.isclose(C, 1.650283478324604e19)
 
         # same, but weight by a**-2
+        #     let dn/da = a**-2 for a in um
+        #         --> normalization, N1 = 1e-6**2 for a in m
         #     mean particle mass for uniform distribution
-        #         = 4 / 3 * np.pi * 1500 * (1e-6**2 - 0.1e-6**2) / 2 / 0.9e-6
-        #         = 0.0034557519189487725
-        #     calibration = 86400 / (0.0034557519189487725 * 3)
-        #         = 8333931.565539247
+        #         = 4 / 3 * np.pi * 1500 * 1e-12 * (1e-6**2 - 0.1e-6**2) / 2 / 0.9e-6
+        #         = 3.455751918948772e-15
+        #     calibration = 86400 / (3.455751918948772e-15 * 3)
+        #         = 8.333931565539247e+18
         scaler = sc.PSD_PowerLaw(-2)
         C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
 
         assert np.isclose(M.to_value("kg"), 86400)
-        assert np.isclose(C, 8333931.565539247)
+        assert np.isclose(C, 8.333931565539247e18)
 
     def simulation_mass(self, sim, scaler):
         a = sim.radius * u.um
         rho = sim.graindensity * u.g / u.cm**3
         rh = sim.rh_i
 
-        dnda = getattr(scaler, "scale_a", lambda x: 1)
+        dnda = sc.CompositeScaler(
+            *[
+                s
+                for s in sc.CompositeScaler(scaler)
+                if isinstance(s, (sc.ConstantFactor, sc.PSDScaler))
+            ]
+        )
         Q = getattr(scaler, "scale_rh", lambda x: 1)
 
         Q_norm = Q(np.linalg.norm(sim.params["comet"]["r"]) / u.au.to("km"))
-        M = (4 / 3 * np.pi * rho * a**3 * dnda(a.value) * Q(rh) / Q_norm).sum().to("kg")
+        M = (
+            (4 / 3 * np.pi * rho * a**3 * dnda.scale(sim.particles) * Q(rh) / Q_norm)
+            .sum()
+            .to("kg")
+        )
 
         # normalize for simulation PSD
         if any(

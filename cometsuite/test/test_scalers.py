@@ -1,4 +1,6 @@
 import pytest
+import numpy as np
+from ..particle import Particle
 from .. import scalers as sc
 from . import sim_radius_uniform
 
@@ -32,3 +34,12 @@ class TestCompositeScaler:
         s = sc.CompositeScaler(sc.ConstantFactor(10)) * sc.ConstantFactor(2)
         p = sim_radius_uniform.particles
         assert all(s.scale(p) == 20)
+
+
+class TestPSDScalers:
+    def test_powerlaw(self):
+        s = sc.PSD_PowerLaw(-3)
+        assert np.isclose(
+            s.scale(Particle(radius=1)) / s.scale(Particle(radius=10)),
+            1000,
+        )

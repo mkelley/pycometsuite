@@ -150,10 +150,11 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     # calculate the total mass of the simulation, with PSD and production rate
     # weights
     def mass(a):
+        p = csp.Particle(radius=a)
         # a in μm, mass in kg
         m = 4 / 3 * pi * (a * 1e-6) ** 3
-        m *= rho.scale(csp.Particle(radius=a)) * 1e3
-        dnda = psd_scaler.scale_a(a)
+        m *= rho.scale(p) * 1e3
+        dnda = psd_scaler.scale(p)
         return m * dnda
 
     def relative_production_rate(age):
