@@ -1,5 +1,9 @@
 import numpy as np
 from numpy import degrees
+from mskpy.util import date2time
+from mskpy.ephem import getxyz
+from .xyzfile import XYZFile0, XYZFile1, params_template, xyz_version, params2header
+from .projection import Projection
 
 __all__ = ["Simulation"]
 
@@ -23,7 +27,17 @@ def particle_property(k):
     return property(getter, setter)
 
 
-class Simulation(object):
+def parameter_property(k):
+    def getter(self):
+        if k in self.params:
+            return self.params[k]
+        else:
+            return None
+
+    return property(getter)
+
+
+class Simulation:
     """A set of simulated particles and RunDynamics parameters.
 
     ``Simulation(filename, [n=])`` ``Simulation(sim, [observer=])``
@@ -166,8 +180,6 @@ class Simulation(object):
     )
 
     def __init__(self, *args, **keywords):
-        from .xyzfile import XYZFile0, XYZFile1, params_template, xyz_version
-
         self.params = params_template.copy()
         self.particles = None
         self.observer = keywords.get("observer")
@@ -222,9 +234,6 @@ class Simulation(object):
         if self.camera is None:
             self.array_coords = None
         else:
-            import pdb
-
-            pdb.set_trace()
             self.camera.sky2xy(self)
 
     def __getitem__(self, k):
@@ -259,8 +268,6 @@ class Simulation(object):
         return len(self.particles)
 
     def __repr__(self):
-        from .xyzfile import params2header
-
         return (
             params2header(self.params)
             + """
@@ -345,9 +352,6 @@ Average rh (AU): {}
 
         """
 
-        from mskpy.util import date2time
-        from .projection import Projection
-
         if self.observer is None:
             raise NoObserver("Observer not defined.")
         if self.verbose:
@@ -389,6 +393,35 @@ Average rh (AU): {}
     label = particle_property("label")
 
     ######################################################################
+    # properties from parameters
+    jd = parameter_property("jd")
+    xyzfile = parameter_property("xyzfile")
+    labelprefix = parameter_property("label")
+    pfunc = parameter_property("pfunc")
+    tol = parameter_property("tol")
+    planets = parameter_property("planets")
+    planetlookup = parameter_property("planetlookup")
+    closeapproaches = parameter_property("closeapproaches")
+    box = parameter_property("box")
+    ltt = parameter_property("ltt")
+    save = parameter_property("save")
+    synbeta = parameter_property("beta")
+    ndays = parameter_property("ndays")
+    steps = parameter_property("steps")
+    orbit = parameter_property("orbit")
+    nparticles = parameter_property("nparticles")
+    units = parameter_property("units")
+    data = parameter_property("data")
+
+    @property
+    def comet(self):
+        return self.params["comet"]["name"]
+
+    @property
+    def kernel(self):
+        return self.params["comet"]["kernel"]
+
+    ######################################################################
     # derived properties
     @property
     def s_ej(self):
@@ -428,11 +461,9 @@ Average rh (AU): {}
     @property
     def d(self):
         """Target-particle distance (km)."""
-        from mskpy import getxyz
-
         if self.r_f is None:
             return None
-        RHt = getxyz(self.comet, date=self.jd, kernel=self.kernel)[0]
+        RHt = self.params["comet"]["r"]
         return np.sqrt(np.sum((self.r_f - RHt) ** 2, 1))
 
     @property
@@ -457,8 +488,6 @@ Average rh (AU): {}
     @property
     def r_c(self):
         """Comet heliocentric coordintes at time of observation."""
-        from mskpy import getxyz
-
         if "r" in self.params["comet"]:
             return self.params["comet"]["r"]
         else:
