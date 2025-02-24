@@ -21,15 +21,15 @@ def get_sim_comet(sim):
 
 
 class TestMassCalibration:
-    def test_simple_examples(self):
-        def create_sim(pgen):
-            sim = pgen.sim()
-            sim.init_particles()
-            for i, p in enumerate(pgen):
-                p.final = p.init
-                sim[i] = p
-            return sim
+    def create_sim(self, pgen):
+        sim = pgen.sim()
+        sim.init_particles()
+        for i, p in enumerate(pgen):
+            p.final = p.init
+            sim[i] = p
+        return sim
 
+    def test_simple_examples(self):
         date = Time("2024-11-01")
         comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
         pgen = Coma(comet, date)
@@ -39,7 +39,7 @@ class TestMassCalibration:
         pgen.density_scale = sc.UnityScaler()
         pgen.nparticles = 1
 
-        sim = create_sim(pgen)
+        sim = self.create_sim(pgen)
         scaler = sc.UnityScaler()
 
         # calibrate to 1 kg/s = 86400 kg / day
@@ -64,7 +64,7 @@ class TestMassCalibration:
         #         = 1.650283478324604e+19
         pgen.radius = gen.Grid(0.1, 1, 3)
         pgen.nparticles = 3
-        sim = create_sim(pgen)
+        sim = self.create_sim(pgen)
         scaler = sc.UnityScaler()
         C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
 
@@ -85,32 +85,93 @@ class TestMassCalibration:
         assert np.isclose(M.to_value("kg"), 86400)
         assert np.isclose(C, 8.333931565539247e18)
 
+    def test_simple_examples_with_log_bias(self):
+        date = Time("2024-11-01")
+        comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+        pgen = Coma(comet, date)
+        pgen.age = gen.Uniform(0, 1)
+        pgen.radius = gen.Log(0, 0)
+        pgen.composition = AmorphousCarbon()
+        pgen.density_scale = sc.UnityScaler()
+        pgen.nparticles = 1
+
+        sim = self.create_sim(pgen)
+        scaler = sc.PSD_RemoveLogBias()
+
+        # calibrate to 1 kg/s = 86400 kg / day
+        Q0 = 1 * u.kg / u.s
+        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+
+        # the simulation is 1 day long --> 86400 kg expected
+        assert np.isclose(M.to_value("kg"), 86400)
+
+        # one 1 um grain in 1 day:
+        #     mass = 4 / 3 * pi * (1 * u.um)**3 * 1.5 * u.g / u.cm**3
+        #          = 6.283185307179585e-15 kg
+        #     calibration = 86400 / 6.283185307179585e-15 = 1.375098708313976e+19
+        assert np.isclose(C, 1.375098708313976e19)
+
+        # repeat, but with a 10 um grain
+        #
+        #     mass = m(10)
+        #          = 6.283185307179585e-12 kg
+        #     calibration = 86400 / 6.283185307179585e-12
+
+        pgen.radius = gen.Log(1, 1)
+        sim = self.create_sim(pgen)
+
+        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        assert np.isclose(M.to_value("kg"), 86400)
+        assert np.isclose(C, 1.375098708313976e16)
+
+        # repeat, but pick 3 grains uniformly in log space:
+        #
+        #     total particle mass based on the (uniform) distribution
+        #         = 4 / 3 * np.pi * 1500 * (10e-6**4 - 1e-6**4) / 4 / 9e-6
+        #         = 1.7451547190691308e-12
+        #     normalize by actual simulation PSD
+        #         ∫ a**-1 da = log(10e-6)- log(1e-6) = 2.302585092994045
+        #     calibration = 86400 / (1.7451547190691308e-12 / 2.302585092994045 * 3)
+
+        pgen.nparticles = 3
+        pgen.radius = gen.Grid(0, 1, pgen.nparticles, log=True)
+        sim = self.create_sim(pgen)
+
+        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        assert np.isclose(M.to_value("kg"), 86400)
+        assert np.isclose(C, 3.799918136404591e16)
+
     def simulation_mass(self, sim, scaler):
         a = sim.radius * u.um
         rho = sim.graindensity * u.g / u.cm**3
         rh = sim.rh_i
 
-        dnda = sc.CompositeScaler(
-            *[
-                s
-                for s in sc.CompositeScaler(scaler)
-                if isinstance(s, (sc.ConstantFactor, sc.PSDScaler))
-            ]
-        )
-        Q = getattr(scaler, "scale_rh", lambda x: 1)
+        _scaler = sc.CompositeScaler(scaler)
+        dnda = _scaler.filter((sc.ConstantFactor, sc.PSDScaler))
+        # .get(
+        #    sc.PSD_RemoveLogBias, inverse=True
+        # )
+        Q = _scaler.filter(sc.ProductionRateScaler)
 
-        Q_norm = Q(np.linalg.norm(sim.params["comet"]["r"]) / u.au.to("km"))
+        Q_norm = Q.scale_rh(np.linalg.norm(sim.params["comet"]["r"]) / u.au.to("km"))
         M = (
-            (4 / 3 * np.pi * rho * a**3 * dnda.scale(sim.particles) * Q(rh) / Q_norm)
+            (
+                4
+                / 3
+                * np.pi
+                * rho
+                * a**3
+                * dnda.scale(sim.particles)
+                * Q.scale_rh(rh)
+                / Q_norm
+            )
             .sum()
             .to("kg")
         )
 
         # normalize for simulation PSD
-        if any(
-            [isinstance(s, sc.PSD_RemoveLogBias) for s in sc.CompositeScaler(scaler)]
-        ):
-            M *= len(a) / a.value.sum()
+        # if len(_scaler.get(sc.PSD_RemoveLogBias)) != 0:
+        #     M *= len(a) / a.value.sum()
 
         return M
 

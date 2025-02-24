@@ -1,12 +1,14 @@
 __all__ = ["mass_calibration"]
 
+import warnings
 import numpy as np
 from numpy import pi
 from scipy.integrate import quad
 import astropy.units as u
 from mskpy import getspiceobj, cal2time, KeplerState
-from .scalers import *  # needed for eval
 from . import scalers as sc
+from .scalers import *  # needed for eval
+from .generators import *  # needed for eval
 from . import generators as csg  # needed for eval
 from . import particle as csp  # needed for eval
 
@@ -23,10 +25,12 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     Parameters
     ----------
     sim : Simulation
-        The simulation to calibrate.
+        The simulation to calibrate.  Must be simulated with uniform dust
+        production rates and radii picked from uniform or log distributions.
 
     scaler : Scaler or CompositeScaler
-        The simulation scale factors.
+        The simulation scale factors, including ``PDS_RemoveLogBias`` when the
+        simulation radii are picked from a log distribution.
 
     Q0 : Quantity
         The dust production rate (mass per time) at ``t0``.
@@ -58,21 +62,36 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     Notes
     -----
-                             ∫∫ m(a) dn/da dm/dt da dt
-    mean particle mass, m_p: -------------------------
-                                      ∫∫ da dt
+                             ∫∫ m(a) dn/da dn/da|sim dm/dt da dt
+    mean particle mass, m_p: -----------------------------------
+                                      ∫∫ dn/da|sim da dt
 
     where dn/da is the desired differential particle size distribution, and
-    dm/dt is the desired mass loss rate.
+    dm/dt is the desired mass loss rate.  dn/da|sim is the simulated
+    differential particle size distribution (uniform or log).
 
-    total expected mass, M: ∫ dm/dt dt = total expected mass
+    total expected mass, M: n * m_p
 
-    --> C = m_p * n / M
+    total simulated mass = sum(m(a))
+
+    --> C = total_expected_mass / total_simulated_mass
 
     """
 
     if not sim.params["pfunc"]["age"].startswith("Uniform("):
-        raise ValueError("Uniform particle generator required.")
+        raise ValueError("Uniform particle age generator required.")
+
+    radius_pfunc = eval(sim.params["pfunc"]["radius"])
+    if isinstance(radius_pfunc, csg.Uniform) or (
+        isinstance(radius_pfunc, csg.Grid) and not radius_pfunc.log
+    ):
+        psd_sim = lambda a: 1.0
+    elif isinstance(radius_pfunc, csg.Log) or (
+        isinstance(radius_pfunc, csg.Grid) and radius_pfunc.log
+    ):
+        psd_sim = lambda a: a**-1.0
+    else:
+        raise ValueError("Uniform, Log, or Grid particle radius generator required.")
 
     n = sim.params["nparticles"] if n is None else n
 
@@ -98,61 +117,45 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
         )
 
     # get all scalers that affect simulation production rate
-    _scaler = sc.CompositeScaler(
-        *(
-            s
-            for s in sc.CompositeScaler(scaler)
-            if not isinstance(
-                s,
-                (
-                    sc.LightScaler,
-                    sc.EjectionSpeedScaler,
-                    sc.ParameterWeight,
-                    sc.MassScaler,
-                ),
-            )
+    _scaler = sc.CompositeScaler(scaler).filter(
+        (
+            sc.ConstantFactor,
+            sc.MassScaler,
+            sc.ProductionRateScaler,
+            sc.PSDScaler,
         )
     )
 
-    unsupported = [
-        not isinstance(s, (sc.ProductionRateScaler, sc.PSDScaler, sc.ConstantFactor))
-        for s in _scaler
-    ]
-    if any(unsupported):
+    unsupported = _scaler.filter(sc.MassScaler)
+    if len(unsupported) > 0:
+        raise ValueError("MassScaler is not yet supported")
+
+    # Split scalers into production rate and PSD scalers.  It may be arbitrary
+    # where we account for constant factors, but here we put them with the PSDs.
+    # PSD_RemoveLogBias affects accounting for the number of simulated
+    # particles, but not the expected mass, so treat it separately.
+    Qd_scaler = _scaler.filter(sc.ProductionRateScaler)
+
+    psd_scaler = _scaler.filter((sc.PSDScaler, sc.ConstantFactor)).filter(
+        sc.PSD_RemoveLogBias, inverse=True
+    )
+
+    remove_log_bias = _scaler.filter(sc.PSD_RemoveLogBias)
+    if len(remove_log_bias) == 0 and radius_pfunc == "Log":
         raise ValueError(
-            "Only ProductionRateScaler, PSDScaler, and ConstantFactor are supported."
-            "  Either fix the code, or perhaps setting `n` will help?"
+            "radius particle function was Log, but ``scaler`` is missing RemoveLogBias."
         )
-
-    # get scalers that affect dust production rate
-    Qd_scaler = sc.CompositeScaler(
-        *[s for s in _scaler if isinstance(s, sc.ProductionRateScaler)]
-    )
-
-    # get particle size distribution scalers and constant factors (it may be
-    # arbitrary where we account for constant factors), do not include
-    # PDS_RemoveLogBias
-    psd_scaler = sc.CompositeScaler(
-        *[
-            s
-            for s in _scaler
-            if (
-                isinstance(s, (sc.PSDScaler, sc.ConstantFactor))
-                and not isinstance(s, sc.PSD_RemoveLogBias)
-            )
-        ]
-    )
 
     # density
     composition = eval("csp." + sim.params["pfunc"]["composition"])
     rho = eval(sim.params["pfunc"]["density_scale"]) * composition.rho0
 
-    # calculate the total mass of the simulation, with PSD and production rate
-    # weights
+    # calculate the total desired mass of the simulation, with PSD and
+    # production rate weights
     def mass(a):
         p = csp.Particle(radius=a)
         # a in μm, mass in kg
-        m = 4 / 3 * pi * (a * 1e-6) ** 3
+        m = 4 / 3 * pi * (a * 1e-6) ** 3 * psd_sim(a)
         m *= rho.scale(p) * 1e3
         dnda = psd_scaler.scale(p)
         return m * dnda
@@ -170,7 +173,7 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
         m_p = np.squeeze(mass(arange_sim[0])) * u.kg
     else:
         points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
-        psd_norm = 1 / np.ptp(arange_sim)
+        psd_norm = 1 / quad(psd_sim, *arange_sim, points=points)[0]
         m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
 
     gen = eval("csg." + sim.params["pfunc"]["age"])
@@ -179,12 +182,12 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     M_sim = n * m_p * x
 
-    # calculate total expected mass
+    # calculate the desired mass
 
     # normalize to Q0 at t0
     rh0 = np.linalg.norm(comet.r(t0)) / 1.495978707e8
     Q_normalization = Q0.to("kg/s").value / Qd_scaler.scale_rh(rh0)
 
     M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
-
+    breakpoint()
     return (M / M_sim).to_value(u.dimensionless_unscaled), M

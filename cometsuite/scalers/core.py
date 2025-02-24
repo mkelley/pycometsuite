@@ -126,6 +126,35 @@ class CompositeScaler(Scaler, UserList):
     def formula(self):
         return [s.formula() for s in self]
 
+    def filter(self, cls, inverse=False):
+        """Return scalers derived from the given classes.
+
+
+        Parameters
+        ----------
+        cls : class or list of classes
+            The class(es) to return.
+
+        inverse : bool, optional
+            Set to ``False`` to return all scalers except those of the given
+            class(es).
+
+
+        Returns
+        -------
+        scaler : CompositeScaler
+
+        """
+
+        def test(s):
+            t = isinstance(s, cls)
+            if inverse:
+                return not t
+            else:
+                return t
+
+        return CompositeScaler(*(s for s in self if test(s)))
+
     def scale(self, p):
         c = 1.0
         for s in self:

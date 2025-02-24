@@ -191,15 +191,15 @@ class Grid(Generator):
     def __init__(self, x0, x1, num, endpoint=True, log=False, cycle=1, repeat=1):
         self.x0 = x0
         self.x1 = x1
-        self._num = num
-        self._endpoint = endpoint
-        self._cycle = cycle
-        self._log = log
+        self.num = num
+        self.endpoint = endpoint
+        self.cycle = cycle
+        self.log = log
         if log:
             seq = np.logspace(x0, x1, num, endpoint=endpoint)
         else:
             seq = np.linspace(x0, x1, num, endpoint=endpoint)
-        self._repeat = repeat
+        self.repeat = repeat
         if repeat > 1:
             self.seq = np.repeat(seq, repeat)
         else:
@@ -211,18 +211,26 @@ class Grid(Generator):
         return "Grid({}, {}, {}, endpoint={}, log={}, cycle={}, repeat={})".format(
             self.x0,
             self.x1,
-            self._num,
-            self._endpoint,
-            self._log,
-            self._cycle,
-            self._repeat,
+            self.num,
+            self.endpoint,
+            self.log,
+            self.cycle,
+            self.repeat,
         )
 
     def min(self):
-        return min(self.x0, self.x1)
+        y = min(self.x0, self.x1)
+        if self.log:
+            return 10**y
+        else:
+            return y
 
     def max(self):
-        return max(self.x0, self.x1)
+        y = max(self.x0, self.x1)
+        if self.log:
+            return 10**y
+        else:
+            return y
 
     def __next__(self):
         self.i += 1
