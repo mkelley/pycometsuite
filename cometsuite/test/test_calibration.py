@@ -213,10 +213,10 @@ class TestMassCalibration:
 
         (3) dn/da = PSD_PowerLaw(-3)
                   = a**-3 for a in um
-                  = (1e-6 a)**3 for a in m
+                  = (1e6 a)**-3 for a in m
 
                        4 pi rho N
-            M_sim = ----------------- ∫ a**3 (1e-6 a)**-3 da
+            M_sim = ----------------- ∫ a**3 (1e6 a)**-3 da
                     3 (a_max - a_min)
 
                     4 pi rho N
@@ -230,7 +230,7 @@ class TestMassCalibration:
         (4) dn/da = a**-4
 
                        4 pi rho N
-            M_sim = ----------------- ∫ a**3 (1e-6 a)**-4 da
+            M_sim = ----------------- ∫ a**3 (1e6 a)**-4 da
                     3 (a_max - a_min)
 
                     4 pi rho N       (ln(a_max) - ln(a_min))
@@ -279,45 +279,134 @@ class TestMassCalibration:
         assert np.isclose(C, expected_C)
         assert np.isclose(m_sim, expected_M, rtol=0.1)
 
-        # expected = (m_cal / m_sim).to_value("")
-        # C, M = mass_calibration(sim_radius_uniform, scaler, Q0, state_class=KeplerState)
-
-        # # For 2000 particles of _uniform_ mass, expect an uncertainty of sqrt(2000)
-        # # / 2000 = 2.2%
-        # assert np.isclose(M, m_cal)
-        # assert np.isclose(C, expected, rtol=0.03)
-
     @pytest.mark.parametrize(
-        "scaler,expected",
+        "scaler,expected_C,expected_M",
         [
-            (sc.PSD_RemoveLogBias(), 1),
-            (sc.PSD_RemoveLogBias() * sc.ConstantFactor(10), 1),
-            (sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3), 1),
-            (sc.PSD_RemoveLogBias() * sc.QRh(-4), 1),
-            (sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4), 1),
+            (sc.PSD_RemoveLogBias(), 1899769091293167.5, 8_640_000),
+            (
+                sc.PSD_RemoveLogBias() * sc.PSD_Constant(10),
+                189976909129316.78,
+                8_640_000,
+            ),
+            (
+                sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3),
+                4.797396647210801e17,
+                8_640_000,
+            ),
+            (
+                sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-4),
+                1.0313240312354817e18,
+                8_640_000,
+            ),
+            (
+                sc.PSD_RemoveLogBias() * sc.QRh(-4),
+                1899769091293167.5,
+                8_640_000 * 0.4354466,
+            ),
+            (
+                sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
+                4.797396647210801e17,
+                8_640_000 * 0.4354466,
+            ),
         ],
     )
-    def test_mass_calibration_radius_log(self, sim_radius_log, scaler, expected):
+    def test_mass_calibration_radius_log(
+        self, sim_radius_log, scaler, expected_C, expected_M
+    ):
         """
         Calculate the expected calibration constant:
 
-                ∫∫ m(a) dn/da w(a) dm/dt da dt
-        M_sim = ------------------------------
-                          ∫ dt
+        Q0 = 1 kg/s
+        dt = 100 days
+        --> M = 8_640_000 kg
 
+        N = 2000 particles
+        a = 0.1 to 10 μm
+        rho = 1.0 g/cm3
 
+        Integrate a in units of m, t in units of s.
+
+                    N                                ∫ dm/dt dt
+        M_sim = ---------- ∫ m(a) dn/da w(a) dlog(a) ----------
+                ∫ dlog(a)                               ∫ dt
+
+                        N                                   ∫ dm/dt dt
+              = ---------------- ∫ m(a) dn/da w(a) a**-1 da ----------
+                log(a_max/a_min)                               ∫ dt
+
+        (1) dn/da = UnityScaler = 1
+            w(a) = 1e6 a  # a in m, remove dn/dlog(a) simulation bias
+            dm/dt = 1
+
+                        4 pi rho N
+            M_sim = ------------------ 1e6 ∫ a**3 da
+                    3 log(a_max/a_min)
+
+                        4 pi rho N     (a_max**4 - a_min**4)
+            M_sim = ------------------ --------------------- 1e6
+                    3 log(a_max/a_min)           4
+
+                  = 4.547921133993593e-09
+
+            C = 8640000 / 4.547921133993593e-09
+              = 1899769091293167.5
+
+        (2) dn/da = 10
+            M_sim = 10 M_sim(1)
+            C = C(1) / 10
+
+        (3) dn/da = PSD_PowerLaw(-3)
+                  = a**-3 for a in um
+                  = (1e6 a)**-3 for a in m
+
+                        4 pi rho N
+            M_sim = ------------------ 1e6 ∫ a**3 (1e6 a)**-3 da
+                    3 log(a_max/a_min)
+
+                        4 pi rho N
+                  = ------------------ 1e-12 (a_max - a_min)
+                    3 log(a_max/a_min)
+
+                  = 1.80097678707123e-11
+
+            C = 8640000 / 1.6372516246102093e-11
+              = 4.797396647210801e+17
+
+        (4) dn/da = (1e6 a)**-4 for a in m
+
+                        4 pi rho N
+            M_sim = ------------------ 1e6 ∫ a**3 (1e6 a)**-4 da
+                    3 log(a_max/a_min)
+
+                        4 pi rho N
+                  = ------------------ 1e-18
+                             3
+
+                  = 8.377580409572782e-12
+
+            C = 8640000 / 8.377580409572782e-12
+              = 1.0313240312354817e+18
+
+        (5) Q = rh**-4
+
+            M = M(1) * 0.43544664239177056
+            M_sim = M_sim(1) * 0.43544664239177056
+            --> C = C(1)
+
+        (6) dn/da = a**-4, Q = rh**-3
+
+            M = M(5)
+            C = C(3)
 
         """
-        pass
-        # m_sim = self.simulation_mass(sim_radius_log, scaler)
-        # Q0 = 1 * u.kg / u.s
-        # m_cal = self.calibrated_mass(sim_radius_log, scaler, Q0)
 
-        # expected = (m_cal / m_sim).to_value("")
-        # C, M = mass_calibration(sim_radius_log, scaler, Q0, state_class=KeplerState)
+        Q0 = 1 * u.kg / u.s
+        C, M = mass_calibration(sim_radius_log, scaler, Q0, state_class=KeplerState)
+        m_sim = C * self.simulation_mass(sim_radius_log, scaler)
 
-        # assert np.isclose(M, m_cal)
-        # assert np.isclose(C, expected, rtol=0.03)
+        assert np.isclose(M, expected_M * u.kg)
+        assert np.isclose(C, expected_C)
+        assert np.isclose(m_sim, expected_M, rtol=0.1)
 
     @pytest.mark.slow
     @pytest.mark.parametrize(
