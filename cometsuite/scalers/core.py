@@ -23,6 +23,8 @@ class Scaler(abc.ABC):
     -----
     Particle scale factors are multiplicative.
 
+    Radius must be in μm.
+
     """
 
     def __init__(self):
@@ -46,6 +48,7 @@ class Scaler(abc.ABC):
 
     @abc.abstractmethod
     def scale(self, p):
+        """Scale factors for this simulation or particle."""
         return 1.0
 
 

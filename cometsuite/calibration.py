@@ -7,8 +7,6 @@ from scipy.integrate import quad
 import astropy.units as u
 from mskpy import getspiceobj, cal2time, KeplerState
 from . import scalers as sc
-from .scalers import *  # needed for eval
-from .generators import *  # needed for eval
 from . import generators as csg  # needed for eval
 from . import particle as csp  # needed for eval
 
@@ -62,34 +60,36 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
 
     Notes
     -----
-                             ∫∫ m(a) dn/da dn/da|sim dm/dt da dt
-    mean particle mass, m_p: -----------------------------------
-                                      ∫∫ dn/da|sim da dt
+                                 ∫∫ m(a) dn/da w(a) dm/dt da dt
+    total simulated mass, M_sim: ------------------------------
+                                             ∫ dt
 
-    where dn/da is the desired differential particle size distribution, and
-    dm/dt is the desired mass loss rate.  dn/da|sim is the simulated
-    differential particle size distribution (uniform or log).
+    where dn/da is the differential particle size distribution, w(a) are
+    particle weights used to correct simulations picked from non-uniform size
+    distributions, and dm/dt is the mass loss rate scaler.
 
-    total expected mass, M: n * m_p
-
-    total simulated mass = sum(m(a))
-
-    --> C = total_expected_mass / total_simulated_mass
+                             Q0 ∫ dm/dt dt
+    total expected mass, M = -------------
+                               dm/dt|t=t0
+    --> C = M / M_sim
 
     """
 
-    if not sim.params["pfunc"]["age"].startswith("Uniform("):
+    t_gen = eval("csg." + sim.params["pfunc"]["age"])
+    if not isinstance(t_gen, csg.Uniform):
         raise ValueError("Uniform particle age generator required.")
 
-    radius_pfunc = eval(sim.params["pfunc"]["radius"])
-    if isinstance(radius_pfunc, csg.Uniform) or (
-        isinstance(radius_pfunc, csg.Grid) and not radius_pfunc.log
+    radius_gen = eval("csg." + sim.params["pfunc"]["radius"])
+    if isinstance(radius_gen, csg.Uniform) or (
+        isinstance(radius_gen, csg.Grid) and not radius_gen.log
     ):
-        psd_sim = lambda a: 1.0
-    elif isinstance(radius_pfunc, csg.Log) or (
-        isinstance(radius_pfunc, csg.Grid) and radius_pfunc.log
+        # psd_sim = lambda a: 1.0
+        pass
+    elif isinstance(radius_gen, csg.Log) or (
+        isinstance(radius_gen, csg.Grid) and radius_gen.log
     ):
-        psd_sim = lambda a: a**-1.0
+        # psd_sim = lambda a: a**-1.0
+        pass
     else:
         raise ValueError("Uniform, Log, or Grid particle radius generator required.")
 
@@ -116,78 +116,81 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
             sim.params["comet"]["r"], sim.params["comet"]["v"], sim.params["date"]
         )
 
-    # get all scalers that affect simulation production rate
-    _scaler = sc.CompositeScaler(scaler).filter(
-        (
-            sc.ConstantFactor,
-            sc.MassScaler,
-            sc.ProductionRateScaler,
-            sc.PSDScaler,
+    # Split scalers into production rate and PSD scalers.
+    _scaler = sc.CompositeScaler(scaler)
+
+    # It is not clear if ConstantFactor should be used: is it for the radiation?
+    # PSD? Q?  The latter two could be addressed here, but not the first.
+    if len(_scaler.filter(sc.ConstantFactor)) != 0:
+        raise ValueError("Arbitrary constants (ConstantFactor) cannot be used.")
+
+    if len(_scaler.filter(sc.MassScaler)) > 0:
+        raise ValueError(
+            "MassScaler is not yet supported, but since mass affects dynamics, "
+            "you probably didn't want it here anyway."
         )
-    )
 
-    unsupported = _scaler.filter(sc.MassScaler)
-    if len(unsupported) > 0:
-        raise ValueError("MassScaler is not yet supported")
+    # Split scalers into production rate and PSD scalers.
 
-    # Split scalers into production rate and PSD scalers.  It may be arbitrary
-    # where we account for constant factors, but here we put them with the PSDs.
-    # PSD_RemoveLogBias affects accounting for the number of simulated
-    # particles, but not the expected mass, so treat it separately.
     Qd_scaler = _scaler.filter(sc.ProductionRateScaler)
+    psd_scaler = _scaler.filter(sc.PSDScaler)
 
-    psd_scaler = _scaler.filter((sc.PSDScaler, sc.ConstantFactor)).filter(
-        sc.PSD_RemoveLogBias, inverse=True
-    )
-
-    remove_log_bias = _scaler.filter(sc.PSD_RemoveLogBias)
-    if len(remove_log_bias) == 0 and radius_pfunc == "Log":
+    if len(_scaler.filter(sc.PSD_RemoveLogBias)) == 0 and isinstance(
+        radius_gen, csg.Log
+    ):
         raise ValueError(
             "radius particle function was Log, but ``scaler`` is missing RemoveLogBias."
         )
 
     # density
     composition = eval("csp." + sim.params["pfunc"]["composition"])
-    rho = eval(sim.params["pfunc"]["density_scale"]) * composition.rho0
+    rho = eval("sc." + sim.params["pfunc"]["density_scale"]) * composition.rho0
+
+    # size ditribution range, and integration points
+    gen = eval("csg." + sim.params["pfunc"]["radius"])
+    arange_sim = 1e-6 * np.array((gen.min(), gen.max()))  # m
+    a_points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
+
+    # Scale to the total number of simulated particles, n
+    # psd_norm = n / quad(lambda a: psd_scaler.scale_a(a), *arange_sim)[0]
+    sim_scale = n / np.ptp(arange_sim)
 
     # calculate the total desired mass of the simulation, with PSD and
     # production rate weights
+
     def mass(a):
+        """Mass of a single particle, weighted by the normalized PSD.
+
+        # a in μm, rho in g/cm3, mass in kg
+        a in m, rho in g/cm3, mass in kg
+
+        """
         p = csp.Particle(radius=a)
-        # a in μm, mass in kg
-        m = 4 / 3 * pi * (a * 1e-6) ** 3 * psd_sim(a)
-        m *= rho.scale(p) * 1e3
-        dnda = psd_scaler.scale(p)
+        m = 4 / 3 * pi * a**3 * rho.scale(p) * 1e3
+        dnda = psd_scaler.scale_a(1e6 * a)
         return m * dnda
 
-    def relative_production_rate(age):
+    def production_rate(age):
         # kg/s
-        rh = np.linalg.norm(comet.r(t_obs - age * u.s)) / 1.495978707e8
-        return Qd_scaler.scale_rh(rh)
+        rh = np.linalg.norm(comet.r(t_obs - age * u.s)) / 1.49597871e08
+        return Q_normalization * Qd_scaler.scale_rh(rh)
 
-    gen = eval("csg." + sim.params["pfunc"]["radius"])
-    arange_sim = np.array((gen.min(), gen.max()))
+    # total desired mass
 
-    # mean particle mass of the simulation
-    if np.ptp(arange_sim) == 0:
-        m_p = np.squeeze(mass(arange_sim[0])) * u.kg
-    else:
-        points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
-        psd_norm = 1 / quad(psd_sim, *arange_sim, points=points)[0]
-        m_p = (quad(mass, *arange_sim, points=points)[0] * psd_norm) * u.kg
+    # normalization for production_rate: Q0 at t0
+    rh0 = np.linalg.norm(comet.r(t0)) / 1.49597871e08
+    Q_normalization = (Q0 / Qd_scaler.scale_rh(rh0)).to_value("kg/s")
 
-    gen = eval("csg." + sim.params["pfunc"]["age"])
-    trange_sim = np.array((gen.min(), gen.max())) * 86400  # s
-    x = quad(relative_production_rate, *trange_sim)[0] / (np.ptp(trange_sim))
+    trange_sim = np.array((t_gen.min(), t_gen.max())) * 86400  # s
+    x_t = quad(production_rate, *trange_sim)[0]
+    M = Q_normalization * x_t
 
-    M_sim = n * m_p * x
+    # total simulated mass
+    #
+    # We required a simulation with particles distributed uniformly in time.
+    # This allows us to separate the radius and time integrals.
 
-    # calculate the desired mass
+    x_a = sim_scale * quad(mass, *arange_sim, points=a_points)[0]
+    M_sim = x_a * x_t / np.ptp(trange_sim)
 
-    # normalize to Q0 at t0
-    rh0 = np.linalg.norm(comet.r(t0)) / 1.495978707e8
-    Q_normalization = Q0.to("kg/s").value / Qd_scaler.scale_rh(rh0)
-
-    M = Q_normalization * quad(relative_production_rate, *trange_sim)[0] * u.kg
-    breakpoint()
-    return (M / M_sim).to_value(u.dimensionless_unscaled), M
+    return M / M_sim, M * u.kg

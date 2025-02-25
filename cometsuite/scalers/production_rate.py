@@ -1,19 +1,42 @@
 __all__ = [
     "ProductionRateScaler",
+    "ConstantProductionRate",
     "QRh",
     "QRhDouble",
 ]
 
 import abc
+import numpy as np
 from .core import Scaler
 
 
 class ProductionRateScaler(Scaler):
     """Abstract base class for production rate scale factors."""
 
+    def scale(self, p):
+        return self.scale_rh(np.linalg.norm(p.r_i, axis=-1) / 1.49597871e08)
+
     @abc.abstractmethod
     def scale_rh(self, rh):
+        """rh in au."""
         raise NotImplemented
+
+
+class ConstantProductionRate(ProductionRateScaler):
+    """Constant production rate with time."""
+
+    def __init__(self, Q):
+        self.Q = Q.to("kg/s")
+
+    def formula(self):
+        return f"Q = {self.Q:.3g}"
+
+    def __str__(self):
+        return f"ConstantProductionRate({self.Q})"
+
+    def scale_rh(self, rh):
+        # kg/s
+        return self.Q.value
 
 
 class QRh(ProductionRateScaler):
@@ -42,9 +65,6 @@ class QRh(ProductionRateScaler):
 
     def formula(self):
         return (r"$Q \propto r_h^{{{}}}$").format(self.k)
-
-    def scale(self, p):
-        return self.scale_rh(p.rh_i)
 
     def scale_rh(self, rh):
         return rh**self.k
@@ -95,9 +115,6 @@ class QRhDouble(ProductionRateScaler):
             r"""$Q \propto r_h^{{{}}}$ for $r_h < {}$ AU
 $Q \propto r_h^{{{}}}$ for $r_h > {}$ AU"""
         ).format(self.k1, self.rh0, self.k2, self.rh0)
-
-    def scale(self, p):
-        return self.scale_rh(p.rh_i)
 
     def scale_rh(self, rh):
         alpha = (self.k1 - self.k2) / self.k12

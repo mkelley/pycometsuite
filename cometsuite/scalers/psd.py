@@ -1,5 +1,6 @@
 __all__ = [
     "PSDScaler",
+    "PSD_Constant",
     "PSD_Hanner",
     "PSD_BrokenPowerLaw",
     "PSD_PowerLaw",
@@ -15,9 +16,28 @@ from .core import Scaler
 class PSDScaler(Scaler):
     """Abstract base class for particle size distribution factors."""
 
+    def scale(self, p):
+        return self.scale_a(p.radius)
+
     @abc.abstractmethod
     def scale_a(self, a):
         raise NotImplemented
+
+
+class PSD_Constant(PSDScaler):
+    """Constant scale factor."""
+
+    def __init__(self, N1):
+        self.N1 = N1
+
+    def formula(self):
+        return f"dn/da = {self.N1:.3g}"
+
+    def __str__(self):
+        return f"PSD_Constant({self.N1})"
+
+    def scale_a(self, a):
+        return self.N1
 
 
 class PSD_Hanner(PSDScaler):
@@ -29,7 +49,7 @@ class PSD_Hanner(PSDScaler):
     Parameters
     ----------
     a0 : float
-        Minimum grain radius. [micrometer]
+        Minimum grain radius. [μm]
 
     N : float
         PSD for large grains (`a >> ap`) is `a**-N`.
@@ -73,9 +93,6 @@ class PSD_Hanner(PSDScaler):
         return r"dn/da = {Np:.3g} (1 - {a0:.2g} / a)^M ({a0:.2g} / a)^N".format(
             a0=self.a0, N=self.N, M=self.M, Np=self.Np
         )
-
-    def scale(self, p):
-        return self.scale_a(p.radius)
 
     def scale_a(self, a):
         return self.Np * (1 - self.a0 / a) ** self.M * (self.a0 / a) ** self.N
@@ -127,9 +144,6 @@ class PSD_BrokenPowerLaw(PSDScaler):
             self.N1, self.N, self.a0, self._large_psd.N1, self.M
         )
 
-    def scale(self, p):
-        return self.scale_a(p.radius)
-
     def scale_a(self, a):
         s = np.ones_like(a)
         small = a < self.a0
@@ -177,9 +191,6 @@ class PSD_PowerLaw(PSDScaler):
     def formula(self):
         return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$".format(self.N1, self.N)
 
-    def scale(self, p):
-        return self.scale_a(p.radius)
-
     def scale_a(self, a):
         return self.N1 * a**self.N
 
@@ -226,9 +237,6 @@ class PSD_PowerLawLargeScaled(PSDScaler):
         return r"$dn/da = {:.3g}\times\,a^{{{:.1f}}}$, $dn/da(a > {:.3g}) = dn/da \times {:.3g}$".format(
             self.N1, self.a0, self.scale_factor, self.N
         )
-
-    def scale(self, p):
-        return self.scale_a(p.radius)
 
     def scale_a(self, a):
         s = self.N1 * a**self.N
@@ -298,9 +306,6 @@ class PSD_RemoveLogBias(PSDScaler):
             self.N0 = self.Nt / np.log(max(self.aminmax) / min(self.aminmax))
         else:
             self.N0 = 1.0
-
-    def scale(self, p):
-        return self.scale_a(p.radius)
 
     def scale_a(self, a):
         return self.N0 * a

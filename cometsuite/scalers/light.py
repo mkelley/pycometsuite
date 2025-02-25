@@ -75,7 +75,8 @@ class ScatteredLight(LightScaler):
         if any(i):
             Q[i] = (p.radius[i] / k) ** 4
         sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
-        return Q * sigma * self.S / p.rh_f**2 / p.Delta**2
+        rh = np.linalg.norm(p.r_f, axis=-1) / 1.49597871e08
+        return Q * sigma * self.S / rh**2 / p.Delta**2
 
 
 class ThermalEmission(LightScaler):
