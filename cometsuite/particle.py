@@ -28,22 +28,30 @@ __all__ = ["Particle", "Coma", "AmorphousCarbon", "Geometric", "syndynes"]
 
 import numpy as np
 from scipy.interpolate import RegularGridInterpolator
+from mskpy.util import date2time
+from mskpy import ephem
 
+from . import generators as gen
 from .generators import (  # noqa: F401
     CosineAngle,
     Delta,
     Grid,
     Log,
     Normal,
+    Sequence,
+    Uniform,
+    UniformAngle,
+    Isotropic,
+    Sunward,
 )
-from .generators import Sequence, Uniform, UniformAngle  # noqa: F401
-from .generators import Isotropic, Sunward  # noqa: F401
 from .scalers import (  # noqa: F401
     FractalPorosity,
     SpeedRadius,
     SpeedRh,
     UnityScaler,
 )
+from .simulation import Simulation
+from .state import State
 
 
 class Particle:
@@ -314,10 +322,6 @@ class Coma(ParticleGenerator):
     """
 
     def __init__(self, comet, date, **kwargs):
-        from mskpy.util import date2time
-        from . import generators as gen
-        from .scalers.core import UnityScaler
-
         self.comet = comet
         self.date = date2time(date)
         self.jd = self.date.jd
@@ -347,9 +351,6 @@ class Coma(ParticleGenerator):
         sim : Simulation
 
         """
-
-        from mskpy import ephem
-        from .simulation import Simulation
 
         sim = Simulation()
         for k, v in self.params.items():
@@ -394,8 +395,6 @@ class Coma(ParticleGenerator):
         p : Particle
 
         """
-
-        from .state import State
 
         p = Particle()
 

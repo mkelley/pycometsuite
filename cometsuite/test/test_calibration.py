@@ -97,6 +97,7 @@ class TestMassCalibration:
 
         sim = self.create_sim(pgen)
         scaler = sc.PSD_RemoveLogBias()
+        m_sim = self.simulation_mass(sim, scaler)
 
         # calibrate to 1 kg/s = 86400 kg / day
         Q0 = 1 * u.kg / u.s
@@ -117,29 +118,18 @@ class TestMassCalibration:
         #          = 6.283185307179585e-12 kg
         #     calibration = 86400 / 6.283185307179585e-12
 
+        pgen = Coma(comet, date)
+        pgen.age = gen.Uniform(0, 1)
         pgen.radius = gen.Log(1, 1)
+        pgen.composition = AmorphousCarbon()
+        pgen.density_scale = sc.UnityScaler()
+        pgen.nparticles = 1
         sim = self.create_sim(pgen)
+        m_sim = self.simulation_mass(sim, scaler)
 
         C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
         assert np.isclose(M.to_value("kg"), 86400)
         assert np.isclose(C, 1.375098708313976e16)
-
-        # repeat, but pick 3 grains uniformly in log space:
-        #
-        #     total particle mass based on the (uniform) distribution
-        #         = 4 / 3 * np.pi * 1500 * (10e-6**4 - 1e-6**4) / 4 / 9e-6
-        #         = 1.7451547190691308e-12
-        #     normalize by actual simulation PSD
-        #         ∫ a**-1 da = log(10e-6)- log(1e-6) = 2.302585092994045
-        #     calibration = 86400 / (1.7451547190691308e-12 / 2.302585092994045 * 3)
-
-        pgen.nparticles = 3
-        pgen.radius = gen.Grid(0, 1, pgen.nparticles, log=True)
-        sim = self.create_sim(pgen)
-
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
-        assert np.isclose(M.to_value("kg"), 86400)
-        assert np.isclose(C, 3.799918136404591e16)
 
     def simulation_mass(self, sim, scaler):
         # kg

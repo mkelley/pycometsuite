@@ -90,7 +90,6 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     ):
         psd_sim = sc.PSD_PowerLaw(-1)
         psd_correction = sc.PSD_Constant(1e6)
-        # psd_correction = sc.UnityScaler()
     else:
         raise ValueError("Uniform, Log, or Grid particle radius generator required.")
 
@@ -147,15 +146,19 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     composition = eval("csp." + sim.params["pfunc"]["composition"])
     rho = eval("sc." + sim.params["pfunc"]["density_scale"]) * composition.rho0
 
-    # size ditribution range, and integration points
+    # size distribution range, and integration points
     gen = eval("csg." + sim.params["pfunc"]["radius"])
     arange_sim = 1e-6 * np.array((gen.min(), gen.max()))  # m
     a_points = np.logspace(np.log10(arange_sim[0]), np.log10(arange_sim[1]), 10)
 
     # Scale to the total number of simulated particles, n
-    sim_scale = (
-        n / quad(lambda a: psd_sim.scale(csp.Particle(radius=a)), *arange_sim)[0]
-    )
+    if np.ptp(arange_sim) == 0:
+        sim_scale = n
+        psd_correction = sc.UnityScaler()
+    else:
+        sim_scale = (
+            n / quad(lambda a: psd_sim.scale(csp.Particle(radius=a)), *arange_sim)[0]
+        )
 
     # calculate the total desired mass of the simulation, with PSD and
     # production rate weights
@@ -183,6 +186,9 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     Q_normalization = (Q0 / Qd_scaler.scale_rh(rh0)).to_value("kg/s")
 
     trange_sim = np.array((t_gen.min(), t_gen.max())) * 86400  # s
+    if np.ptp(trange_sim) == 0:
+        raise ValueError("Cannot calibrate simulations with Δage = 0.")
+
     x_t = quad(production_rate, *trange_sim)[0]
     M = Q_normalization * x_t
 
@@ -191,7 +197,11 @@ def mass_calibration(sim, scaler, Q0, t0=None, n=None, state_class=None):
     # We required a simulation with particles distributed uniformly in time.
     # This allows us to separate the radius and time integrals.
 
-    x_a = sim_scale * quad(mass, *arange_sim, points=a_points)[0]
+    if np.ptp(arange_sim) == 0:
+        x_a = mass(arange_sim[0])
+    else:
+        x_a = sim_scale * quad(mass, *arange_sim, points=a_points)[0]
+
     M_sim = x_a * x_t / np.ptp(trange_sim)
 
     return M / M_sim, M * u.kg
