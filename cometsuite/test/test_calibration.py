@@ -403,7 +403,7 @@ class TestMassCalibration:
         "scaler",
         [
             sc.PSD_RemoveLogBias(),
-            sc.PSD_RemoveLogBias() * sc.ConstantFactor(10),
+            sc.PSD_RemoveLogBias() * sc.PSD_Constant(10),
             sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3),
             sc.PSD_RemoveLogBias() * sc.QRh(-4),
             sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
@@ -411,11 +411,6 @@ class TestMassCalibration:
     )
     def test_mass_calibration_radius_log_slow(self, sim_radius_log_big, scaler):
         m_sim = self.simulation_mass(sim_radius_log_big, scaler)
-        Q0 = 1 * u.kg / u.s
-        m_cal = self.calibrated_mass(sim_radius_log_big, scaler, Q0)
-
-        expected = (m_cal / m_sim).to_value("")
+        Q0 = 1 * u.kg / u.s  # over 100 days
         C, M = mass_calibration(sim_radius_log_big, scaler, Q0, state_class=KeplerState)
-
-        assert np.isclose(M, m_cal)
-        assert np.isclose(C, expected, rtol=0.02)
+        assert np.isclose(C * m_sim, 8_640_000)
