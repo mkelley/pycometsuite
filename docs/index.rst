@@ -9,12 +9,14 @@ Cometary dust dynamics simulator.
     :caption: Contents:
 
     instruments
+    calibration
+
 
 Quick start
-===========
+-----------
 
 Syndynes
-________
+^^^^^^^^
 
 Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke:
 
@@ -76,7 +78,7 @@ Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke:
 
 
 Monte Carlo Coma
-________________
+^^^^^^^^^^^^^^^^
 
 Simulate the coma for T-ReCS observations of C/2009 P1:
 

@@ -153,24 +153,3 @@ Simulations can have particles picked from any size distribution, and the above 
     >>> camera.reset()  # clear previous integration
     >>> camera.integrate(sim)
     >>> plot(camera)
-
-
-Calibrating simulation mass
----------------------------
-
-The `mass_calibration` method can calibrate simulations, with some restrictions.  Ages must be picked from a uniform distribution, and grain radii picked from uniform or Log distributions.
-
-To calibrate our previous simulation to a mass production rate of 1 kg/s:
-
-.. code::
-
-    >>> calib, total_mass = cs.mass_calibration(sim, camera.scaler, 1 * u.kg / u.s, state_class=KeplerState)
-    >>> calib  # doctest: +FLOAT_CMP
-    8.23486568453617e+17
-    >>> total_mass  # doctest: +FLOAT_CMP
-    <Quantity 432000. kg>
-
-The result is a multiplicative factor to scale your simulated data (e.g., images).  The `state_class` keyword is needed here as the `Simulation` parameter object does not yet track the comet's `State` class, and defaults to using SPICE.
-
-.. automodapi:: cometsuite.instruments
-    :headings: -^
