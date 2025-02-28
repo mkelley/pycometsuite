@@ -59,7 +59,7 @@ def sim_radius_uniform() -> Simulation:
     """
 
     date = Time("2024-11-01")
-    comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+    comet = KeplerState([2 * u.au.to("km"), 0, 0], [0, 30, 30], date)
 
     pgen = particle.Coma(
         comet,
@@ -80,7 +80,7 @@ def sim_radius_uniform() -> Simulation:
 @pytest.fixture(scope="session")
 def sim_radius_log() -> Simulation:
     date = Time("2024-11-01")
-    comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+    comet = KeplerState([2 * u.au.to("km"), 0, 0], [0, 30, 30], date)
 
     pgen = particle.Coma(
         comet,
@@ -102,7 +102,7 @@ def sim_radius_log() -> Simulation:
 def sim_radius_log_big() -> Simulation:
     """More particles: takes about 1 min to generate."""
     date = Time("2024-11-01")
-    comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
+    comet = KeplerState([2 * u.au.to("km"), 0, 0], [0, 30, 30], date)
 
     pgen = particle.Coma(
         comet,

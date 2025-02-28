@@ -58,9 +58,14 @@ def production_rate_calibration(sim, scaler, Q0, t0=None, n=None, state_class=No
     Notes
     -----
 
-    Total mass in absence of production rate scaling:
+    Total mass in absence of production rate scaling, but including production
+    rate normalization:
 
-        M0 = ∫ Q0 dt
+              ∫ Q0 dt
+        M0 = ----------
+             dm/dt|t=t0
+
+    where dm/dt is the dust production rate scaler.
 
     Use M0 to calibrate the simulation:
 
@@ -108,7 +113,7 @@ def production_rate_calibration(sim, scaler, Q0, t0=None, n=None, state_class=No
 
     # normalization for production_rate: Q0 at t0
     rh0 = np.linalg.norm(comet.r(t0)) / 1.49597871e8
-    Q_normalization = (Q0 / Qd_scaler.scale_rh(rh0)).to_value("kg/s")
+    Q0_normalized = Q0 / Qd_scaler.scale_rh(rh0)
 
     # get time range from simulation
     trange_sim = np.array((t_gen.min(), t_gen.max())) * 86400  # s
@@ -118,12 +123,12 @@ def production_rate_calibration(sim, scaler, Q0, t0=None, n=None, state_class=No
     def production_rate(age):
         # kg/s
         rh = np.linalg.norm(comet.r(t_obs - age * u.s)) / 1.49597871e8
-        return Q_normalization * Qd_scaler.scale_rh(rh)
+        return float(Qd_scaler.scale_rh(rh))
 
-    x_t = quad(production_rate, *trange_sim)[0]
+    x_t = quad(production_rate, *trange_sim)[0] * Q0_normalized.to_value("kg/s")
     M1 = x_t
 
-    M0 = (Q0 * np.ptp(trange_sim) * u.s).to(u.kg)
+    M0 = (Q0_normalized * np.ptp(trange_sim) * u.s).to(u.kg)
 
     return mass_calibration(sim, scaler, M0, n=n), M1 * u.kg
 
@@ -232,7 +237,7 @@ def mass_calibration(sim, scaler, M0, n=None):
         p = csp.Particle(radius=1e6 * a)
         m = 4 / 3 * pi * a**3 * rho.scale(p) * 1e3
         dnda = psd_scaler.scale(p) * psd_correction.scale(p)
-        return m * dnda
+        return (m * dnda)[0]
 
     # Calculate mass and scale to the total number of simulated particles, n
     if np.ptp(arange_sim) == 0:
@@ -242,7 +247,9 @@ def mass_calibration(sim, scaler, M0, n=None):
         M_sim = (
             n
             * quad(mass, *arange_sim, points=a_points)[0]
-            / quad(lambda a: psd_sim.scale(csp.Particle(radius=a)), *arange_sim)[0]
+            / quad(lambda a: float(psd_sim.scale(csp.Particle(radius=a))), *arange_sim)[
+                0
+            ]
         )
 
     return u.Quantity(M0, "kg").value / M_sim

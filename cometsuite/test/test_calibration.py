@@ -131,19 +131,10 @@ class TestProductionRateCalibration:
         assert np.isclose(C, 1.375098708313976e16)
 
     def simulation_mass(self, sim, scaler):
-        # kg
         _scaler = sc.CompositeScaler(scaler).filter(
             (sc.PSDScaler, sc.ProductionRateScaler)
         )
-        # M = (
-        #     4
-        #     / 3
-        #     * np.pi
-        #     * (1e3 * sim.particles.graindensity)
-        #     * (1e-6 * sim.particles.radius) ** 3
-        #     * _scaler.scale(sim)
-        # ).sum()
-        M = sim.m * 1e-3 * _scaler.scale(sim)
+        M = sim.m * 1e-3 * _scaler.scale(sim)  # kg
         return M.sum()
 
     @pytest.mark.parametrize(
@@ -153,11 +144,11 @@ class TestProductionRateCalibration:
             (sc.PSD_Constant(10), 371313782623035.65, 8_640_000),
             (sc.PSD_PowerLaw(-3), 1.031324e18, 8_640_000),
             (sc.PSD_PowerLaw(-4), 4.031085e18, 8_640_000),
-            (sc.QRh(-4), 3713137826230356.5, 3762258.6),
+            (sc.QRh(-4), 5.94102e16, 5_362_296),
             (
                 sc.PSD_PowerLaw(-3) * sc.QRh(-4),
-                1.031324e18,
-                3_762_258.6,
+                1.6501184e19,
+                5_362_296,
             ),
             (sc.ScatteredLight(0.6), 3713137826230356.5, 8_640_000),
         ],
@@ -180,7 +171,7 @@ class TestProductionRateCalibration:
         M_sim = ----- ∫ m(a) dn/da w(a) da ----------
                 ∫ da                         ∫ dt
 
-        (1) dn/da = UnityScaler = 1
+        (0) dn/da = UnityScaler = 1
             w(a) = 1
             dm/dt = 1
 
@@ -193,13 +184,13 @@ class TestProductionRateCalibration:
             C = 8640000 / 2.326872958758841e-09
               = 3713137826230356.5
 
-        (2) dn/da = 10
+        (1) dn/da = 10
 
-            M_sim = 10 M_sim(1)
+            M_sim = 10 M_sim(0)
 
             C = 371313782623035.65
 
-        (3) dn/da = PSD_PowerLaw(-3)
+        (2) dn/da = PSD_PowerLaw(-3)
                   = a**-3 for a in um
                   = (1e6 a)**-3 for a in m
 
@@ -215,7 +206,7 @@ class TestProductionRateCalibration:
 
             C = 1.0313240312354817e+18
 
-        (4) dn/da = a**-4
+        (3) dn/da = a**-4
 
                        4 pi rho N
             M_sim = ----------------- ∫ a**3 (1e6 a)**-4 da
@@ -229,32 +220,34 @@ class TestProductionRateCalibration:
 
             C = 4.0310850223780823e+18
 
-        (5) dn/da = 1, Q = rh**-4
+        (4) dn/da = 1, Q = rh**-4
 
-                           Q0 ∫ dm/dt dt
-            --> C = C(1) * -------------
-                             dm/dt|t=0
-
+            >>> import numpy as np
+            >>> from scipy.integrate import quad
+            >>> from astropy.time import Time
+            >>> import astropy.units as u
+            >>> from mskpy.ephem import KeplerState
             >>> date = Time("2024-11-01")
-            >>> comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
-            >>> rh = lambda t: np.linalg.norm(comet.r(date - t * u.s))
+            >>> comet = KeplerState([2 * u.au.to("km"), 0, 0], [0, 30, 30], date)
+            >>> rh = lambda t: np.linalg.norm(comet.r(date - t * u.s)) / 1.49597871e8
             >>> rh0 = rh(0)
             >>> quad(lambda t: (rh(t) / rh0)**-4, 0, 8_640_000)[0]  # 1 kg/s
-            3762258.9902648977
+            5362295.859953757
 
-            3762258.9902648977 / 8640000 = 0.43544664239177056
+            5362295.859953757 / 8640000 = 0.6206360949020553
 
-            M = M(1) * 0.43544664239177056
-            M_sim = M_sim(1) * 0.43544664239177056
-            --> C = C(1)
+            M = M(0) * 0.6206360949020553
+            M_sim = M_sim(0) * 0.6206360949020553 / rh0**-4
+                  = M_sim(0) * 0.6206360949020553 / 2**-4
+            --> C = C(0) / 2**-4
 
-        (6) sc.PSD_PowerLaw(-3) * sc.QRh(-4)
-            M = M(4)
-            C = C(3)
+        (5) sc.PSD_PowerLaw(-3) * sc.QRh(-4)
+            M = M(3)
+            C = C(2) / 2**-4
 
-        (7) ScatteredLight(0.6)
-            M = M(1)
-            C = C(1)
+        (6) ScatteredLight(0.6)
+            M = M(0)
+            C = C(0)
 
         """
 
@@ -289,13 +282,13 @@ class TestProductionRateCalibration:
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.QRh(-4),
-                1899769091293167.5,
-                3_762_258.6,
+                3.03963e16,
+                5_362_296,
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
-                4.797396647210801e17,
-                3_762_258.6,
+                7.675824e18,
+                5_362_296,
             ),
         ],
     )
@@ -321,7 +314,7 @@ class TestProductionRateCalibration:
               = ---------------- ∫ m(a) dn/da w(a) a**-1 da ----------
                 log(a_max/a_min)                               ∫ dt
 
-        (1) dn/da = UnityScaler = 1
+        (0) dn/da = UnityScaler = 1
             w(a) = 1e6 a  # a in m, remove dn/dlog(a) simulation bias
             dm/dt = 1
 
@@ -338,11 +331,11 @@ class TestProductionRateCalibration:
             C = 8640000 / 4.547921133993593e-09
               = 1899769091293167.5
 
-        (2) dn/da = 10
-            M_sim = 10 M_sim(1)
-            C = C(1) / 10
+        (1) dn/da = 10
+            M_sim = 10 M_sim(0)
+            C = C(0) / 10
 
-        (3) dn/da = PSD_PowerLaw(-3)
+        (2) dn/da = PSD_PowerLaw(-3)
                   = a**-3 for a in um
                   = (1e6 a)**-3 for a in m
 
@@ -359,7 +352,7 @@ class TestProductionRateCalibration:
             C = 8640000 / 1.6372516246102093e-11
               = 4.797396647210801e+17
 
-        (4) dn/da = (1e6 a)**-4 for a in m
+        (3) dn/da = (1e6 a)**-4 for a in m
 
                         4 pi rho N
             M_sim = ------------------ 1e6 ∫ a**3 (1e6 a)**-4 da
@@ -374,16 +367,15 @@ class TestProductionRateCalibration:
             C = 8640000 / 8.377580409572782e-12
               = 1.0313240312354817e+18
 
-        (5) Q = rh**-4
+        (4) Q = rh**-4
 
-            M = M(1) * 0.43544664239177056
-            M_sim = M_sim(1) * 0.43544664239177056
-            --> C = C(1)
+            M = M(0) * 0.6206360949020553 / 2**-4
+            M_sim = M_sim(0) * 0.6206360949020553
+            --> C = C(0) / 2**-4
 
-        (6) dn/da = a**-4, Q = rh**-3
+        (5) dn/da = a**-4, Q = rh**-3
 
-            M = M(5)
-            C = C(3)
+            --> C = C(2) / 2**-4
 
         """
 
@@ -399,22 +391,22 @@ class TestProductionRateCalibration:
 
     @pytest.mark.slow
     @pytest.mark.parametrize(
-        "scaler",
+        "scaler,expected_M",
         [
-            sc.PSD_RemoveLogBias(),
-            sc.PSD_RemoveLogBias() * sc.PSD_Constant(10),
-            sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3),
-            sc.PSD_RemoveLogBias() * sc.QRh(-4),
-            sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
+            (sc.PSD_RemoveLogBias(), 8_640_000),
+            (sc.PSD_RemoveLogBias() * sc.PSD_Constant(10), 8_640_000),
+            (sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3), 8_640_000),
+            (sc.PSD_RemoveLogBias() * sc.QRh(-4), 5_362_296),
+            (sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4), 5_362_296),
         ],
     )
-    def test_radius_log_slow(self, sim_radius_log_big, scaler):
-        m_sim = self.simulation_mass(sim_radius_log_big, scaler)
+    def test_radius_log_slow(self, sim_radius_log_big, scaler, expected_M):
         Q0 = 1 * u.kg / u.s  # over 100 days
         C, M = production_rate_calibration(
             sim_radius_log_big, scaler, Q0, state_class=KeplerState
         )
-        assert np.isclose(C * m_sim, 8_640_000)
+        m_sim = C * self.simulation_mass(sim_radius_log_big, scaler)
+        assert np.isclose(m_sim, expected_M, rtol=0.05)
 
 
 class TestMassCalibration:

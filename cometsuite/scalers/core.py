@@ -118,7 +118,7 @@ class CompositeScaler(Scaler, UserList):
         return self
 
     def __repr__(self):
-        return "CompositeScaler({})".format(", ".join([repr(s) for s in self]))
+        return "CompositeScaler([{}])".format(", ".join([repr(s) for s in self]))
 
     def __str__(self):
         if len(self) == 0:
