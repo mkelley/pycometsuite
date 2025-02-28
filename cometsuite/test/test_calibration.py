@@ -1,11 +1,10 @@
 import pytest
 import numpy as np
-from scipy.integrate import quad
 import astropy.units as u
 from astropy.time import Time
 from mskpy.ephem import KeplerState, Earth
 from ..particle import Coma, AmorphousCarbon, Geometric
-from .. import generators as gen, scalers as sc, integrator, rundynamics
+from .. import generators as gen, scalers as sc, integrator, rundynamics, Simulation
 from ..calibration import mass_calibration, production_rate_calibration
 from . import sim_radius_uniform, sim_radius_log, sim_radius_log_big
 
@@ -153,7 +152,9 @@ class TestProductionRateCalibration:
             (sc.ScatteredLight(0.6), 3713137826230356.5, 8_640_000),
         ],
     )
-    def test_radius_uniform(self, sim_radius_uniform, scaler, expected_C, expected_M):
+    def test_radius_uniform(
+        self, sim_radius_uniform: Simulation, scaler, expected_C, expected_M
+    ):
         """
         Calculate the expected calibration constant:
 
@@ -260,6 +261,13 @@ class TestProductionRateCalibration:
         assert np.isclose(M, expected_M * u.kg)
         assert np.isclose(C, expected_C)
         assert np.isclose(m_sim, expected_M, rtol=0.1)
+
+        # increase the number of particles: should decrease the calibration factor
+        n3 = sim_radius_uniform.nparticles * 3
+        C3, _ = production_rate_calibration(
+            sim_radius_uniform, scaler, Q0, state_class=KeplerState, n=n3
+        )
+        assert np.isclose(C3, C / 3)
 
     @pytest.mark.parametrize(
         "scaler,expected_C,expected_M",
@@ -388,6 +396,13 @@ class TestProductionRateCalibration:
         assert np.isclose(M, expected_M * u.kg)
         assert np.isclose(C, expected_C)
         assert np.isclose(m_sim, expected_M, rtol=0.1)
+
+        # increase the number of particles: should decrease the calibration factor
+        n3 = sim_radius_log.nparticles * 3
+        C3, _ = production_rate_calibration(
+            sim_radius_log, scaler, Q0, state_class=KeplerState, n=n3
+        )
+        assert np.isclose(C3, C / 3)
 
     @pytest.mark.slow
     @pytest.mark.parametrize(
