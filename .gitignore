@@ -15,3 +15,6 @@ cometsuite/integrator/bsint.c
 _version.py
 .venv
 .tox
+
+# cometsuite save files
+*.xyz
