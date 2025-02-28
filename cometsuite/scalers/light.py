@@ -46,8 +46,11 @@ class ScatteredLight(LightScaler):
     wave : float
         Wavelength of the light. [micrometers]
 
-    unit : astropy Unit
+    unit : astropy Unit, optional
         The flux density units of the scale factor.
+
+    Ap : float
+        Geometric albedo.  Default = 1.
 
 
     Methods
@@ -56,9 +59,10 @@ class ScatteredLight(LightScaler):
 
     """
 
-    def __init__(self, wave, unit=u.Unit("W/(m2 um)")):
-        self.unit = unit
+    def __init__(self, wave, unit=u.Unit("W/(m2 um)"), Ap=1):
         self.wave = wave
+        self.unit = unit
+        self.Ap = Ap
 
         sun = Sun.from_default()
         # a little wavelength averaging to mitigate absorption line issues
@@ -68,15 +72,15 @@ class ScatteredLight(LightScaler):
     def __str__(self):
         return "ScatteredLight({}, unit={})".format(self.wave, repr(self.unit))
 
-    def scale(self, p):
-        Q = np.ones_like(p.radius)
+    def scale(self, sim):
+        Q = np.ones_like(sim.radius)
         k = self.wave / 2 / np.pi
-        i = p.radius < k
+        i = sim.radius < k
         if any(i):
-            Q[i] = (p.radius[i] / k) ** 4
-        sigma = np.pi * (p.radius * 1e-9) ** 2  # km**2
-        rh = np.linalg.norm(p.r_f, axis=-1) / 1.49597871e08
-        return Q * sigma * self.S / rh**2 / p.Delta**2
+            Q[i] = (sim.radius[i] / k) ** 4
+        sigma = np.pi * (sim.radius * 1e-9) ** 2  # km**2
+        rh = np.linalg.norm(sim.r_f, axis=-1) / 1.49597871e08
+        return self.Ap / np.pi * Q * sigma * self.S / rh**2 / sim.Delta**2
 
 
 class ThermalEmission(LightScaler):

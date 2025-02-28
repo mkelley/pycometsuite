@@ -3,11 +3,10 @@ import numpy as np
 from scipy.integrate import quad
 import astropy.units as u
 from astropy.time import Time
-from mskpy.ephem import KeplerState
-from ..particle import Coma, AmorphousCarbon
-from .. import generators as gen
-from .. import scalers as sc
-from ..calibration import mass_calibration
+from mskpy.ephem import KeplerState, Earth
+from ..particle import Coma, AmorphousCarbon, Geometric
+from .. import generators as gen, scalers as sc, integrator, rundynamics
+from ..calibration import mass_calibration, production_rate_calibration
 from . import sim_radius_uniform, sim_radius_log, sim_radius_log_big
 
 
@@ -20,7 +19,7 @@ def get_sim_comet(sim):
     return comet
 
 
-class TestMassCalibration:
+class TestProductionRateCalibration:
     def create_sim(self, pgen):
         sim = pgen.sim()
         sim.init_particles()
@@ -44,7 +43,7 @@ class TestMassCalibration:
 
         # calibrate to 1 kg/s = 86400 kg / day
         Q0 = 1 * u.kg / u.s
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(sim, scaler, Q0, state_class=KeplerState)
 
         # the simulation is 1 day long --> 86400 kg expected
         assert np.isclose(M.to_value("kg"), 86400)
@@ -66,7 +65,7 @@ class TestMassCalibration:
         pgen.nparticles = 3
         sim = self.create_sim(pgen)
         scaler = sc.UnityScaler()
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(sim, scaler, Q0, state_class=KeplerState)
 
         assert np.isclose(M.to_value("kg"), 86400)
         assert np.isclose(C, 1.650283478324604e19)
@@ -80,7 +79,7 @@ class TestMassCalibration:
         #     calibration = 86400 / (3.455751918948772e-15 * 3)
         #         = 8.333931565539247e+18
         scaler = sc.PSD_PowerLaw(-2)
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(sim, scaler, Q0, state_class=KeplerState)
 
         assert np.isclose(M.to_value("kg"), 86400)
         assert np.isclose(C, 8.333931565539247e18)
@@ -101,7 +100,7 @@ class TestMassCalibration:
 
         # calibrate to 1 kg/s = 86400 kg / day
         Q0 = 1 * u.kg / u.s
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(sim, scaler, Q0, state_class=KeplerState)
 
         # the simulation is 1 day long --> 86400 kg expected
         assert np.isclose(M.to_value("kg"), 86400)
@@ -127,7 +126,7 @@ class TestMassCalibration:
         sim = self.create_sim(pgen)
         m_sim = self.simulation_mass(sim, scaler)
 
-        C, M = mass_calibration(sim, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(sim, scaler, Q0, state_class=KeplerState)
         assert np.isclose(M.to_value("kg"), 86400)
         assert np.isclose(C, 1.375098708313976e16)
 
@@ -136,35 +135,34 @@ class TestMassCalibration:
         _scaler = sc.CompositeScaler(scaler).filter(
             (sc.PSDScaler, sc.ProductionRateScaler)
         )
-        M = (
-            4
-            / 3
-            * np.pi
-            * (1e3 * sim.particles.graindensity)
-            * (1e-6 * sim.particles.radius) ** 3
-            * _scaler.scale(sim)
-        ).sum()
-        return M
+        # M = (
+        #     4
+        #     / 3
+        #     * np.pi
+        #     * (1e3 * sim.particles.graindensity)
+        #     * (1e-6 * sim.particles.radius) ** 3
+        #     * _scaler.scale(sim)
+        # ).sum()
+        M = sim.m * 1e-3 * _scaler.scale(sim)
+        return M.sum()
 
     @pytest.mark.parametrize(
         "scaler,expected_C,expected_M",
         [
             (sc.UnityScaler(), 3713137826230356.5, 8_640_000),
             (sc.PSD_Constant(10), 371313782623035.65, 8_640_000),
-            (sc.PSD_PowerLaw(-3), 1.0313240312354817e18, 8_640_000),
-            (sc.PSD_PowerLaw(-4), 4.0310850223780823e18, 8_640_000),
-            (sc.QRh(-4), 3713137826230356.5, 8_640_000 * 0.4354466),
+            (sc.PSD_PowerLaw(-3), 1.031324e18, 8_640_000),
+            (sc.PSD_PowerLaw(-4), 4.031085e18, 8_640_000),
+            (sc.QRh(-4), 3713137826230356.5, 3762258.6),
             (
                 sc.PSD_PowerLaw(-3) * sc.QRh(-4),
-                1.0313240312354817e18,
-                8_640_000 * 0.4354466,
+                1.031324e18,
+                3_762_258.6,
             ),
             (sc.ScatteredLight(0.6), 3713137826230356.5, 8_640_000),
         ],
     )
-    def test_mass_calibration_radius_uniform(
-        self, sim_radius_uniform, scaler, expected_C, expected_M
-    ):
+    def test_radius_uniform(self, sim_radius_uniform, scaler, expected_C, expected_M):
         """
         Calculate the expected calibration constant:
 
@@ -233,13 +231,12 @@ class TestMassCalibration:
 
         (5) dn/da = 1, Q = rh**-4
 
-                           ∫ dm/dt dt
-            --> C = C(1) * ----------
-                              ∫ dt
+                           Q0 ∫ dm/dt dt
+            --> C = C(1) * -------------
+                             dm/dt|t=0
 
-            date = Time("2024-11-01")
-            comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
-
+            >>> date = Time("2024-11-01")
+            >>> comet = KeplerState([u.au.to("km"), 0, 0], [0, 30, 30], date)
             >>> rh = lambda t: np.linalg.norm(comet.r(date - t * u.s))
             >>> rh0 = rh(0)
             >>> quad(lambda t: (rh(t) / rh0)**-4, 0, 8_640_000)[0]  # 1 kg/s
@@ -262,7 +259,9 @@ class TestMassCalibration:
         """
 
         Q0 = 1 * u.kg / u.s
-        C, M = mass_calibration(sim_radius_uniform, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(
+            sim_radius_uniform, scaler, Q0, state_class=KeplerState
+        )
         m_sim = C * self.simulation_mass(sim_radius_uniform, scaler)
 
         assert np.isclose(M, expected_M * u.kg)
@@ -280,29 +279,27 @@ class TestMassCalibration:
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3),
-                4.797396647210801e17,
+                4.79739e17,
                 8_640_000,
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-4),
-                1.0313240312354817e18,
+                1.03132e18,
                 8_640_000,
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.QRh(-4),
                 1899769091293167.5,
-                8_640_000 * 0.4354466,
+                3_762_258.6,
             ),
             (
                 sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
                 4.797396647210801e17,
-                8_640_000 * 0.4354466,
+                3_762_258.6,
             ),
         ],
     )
-    def test_mass_calibration_radius_log(
-        self, sim_radius_log, scaler, expected_C, expected_M
-    ):
+    def test_radius_log(self, sim_radius_log, scaler, expected_C, expected_M):
         """
         Calculate the expected calibration constant:
 
@@ -391,7 +388,9 @@ class TestMassCalibration:
         """
 
         Q0 = 1 * u.kg / u.s
-        C, M = mass_calibration(sim_radius_log, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(
+            sim_radius_log, scaler, Q0, state_class=KeplerState
+        )
         m_sim = C * self.simulation_mass(sim_radius_log, scaler)
 
         assert np.isclose(M, expected_M * u.kg)
@@ -409,8 +408,66 @@ class TestMassCalibration:
             sc.PSD_RemoveLogBias() * sc.PSD_PowerLaw(-3) * sc.QRh(-4),
         ],
     )
-    def test_mass_calibration_radius_log_slow(self, sim_radius_log_big, scaler):
+    def test_radius_log_slow(self, sim_radius_log_big, scaler):
         m_sim = self.simulation_mass(sim_radius_log_big, scaler)
         Q0 = 1 * u.kg / u.s  # over 100 days
-        C, M = mass_calibration(sim_radius_log_big, scaler, Q0, state_class=KeplerState)
+        C, M = production_rate_calibration(
+            sim_radius_log_big, scaler, Q0, state_class=KeplerState
+        )
         assert np.isclose(C * m_sim, 8_640_000)
+
+
+class TestMassCalibration:
+    def test_wirtanen_20181212(self):
+        """Test mass calibration against comet 46P/Wirtanen 2018 Dec 12 outburst.
+
+        Kelley et al. 2021: G=118 km2, M=1.6e6 kg
+
+        Heliocentric orbital elements from Horizons
+
+        Target body name: 46P/Wirtanen                    {source: JPL#K243/4}
+        Center body name: Sun (10)                        {source: DE441}
+        Center-site name: BODY CENTER
+
+        JDTDB
+           X     Y     Z
+           VX    VY    VZ
+           LT    RG    RR
+
+        2458464.500000000 = A.D. 2018-Dec-12 00:00:00.0000 TDB
+         X = 2.282690083831503E-01 Y = 1.030296925323399E+00 Z =-1.779101269594815E-02
+         VX=-2.063521603473429E-02 VY= 4.480659466413741E-03 VZ= 4.378202076601094E-03
+         LT= 6.095662234191731E-03 RG= 1.055431198445367E+00 RR=-1.628370274983429E-04
+
+        """
+
+        date = Time("2012-12-12")
+        comet = KeplerState(
+            [2.282690083831503e-01, 1.030296925323399e00, -1.779101269594815e-02]
+            * u.au,
+            [2.063521603473429e-02, 4.480659466413741e-03, 4.378202076601094e-03]
+            * u.au
+            / u.day,
+            Time("2018-12-12", scale="tdb").utc,
+        )
+
+        pgen = Coma(
+            comet,
+            date,
+        )
+        pgen.composition = Geometric()
+        pgen.radius = gen.Log(-1, 3)
+        pgen.age = gen.Uniform(0, 0.1)
+        pgen.nparticles = 2000
+
+        sim = rundynamics.run(pgen, integrator.FreeExpansion(), seed=25)
+        sim.observer = Earth
+        sim.observe()
+
+        psd = sc.PSD_PowerLaw(-3.5) * sc.PSD_RemoveLogBias()
+
+        # calibrate to total mass of 1.6e6 kg
+        M0 = 1.6e6 * u.kg
+        C = mass_calibration(sim, psd, M0)
+        G = (C * psd.scale(sim) * sim.cs).sum() * u.cm**2
+        assert np.isclose(G, 118 * u.km**2, rtol=0.05)
