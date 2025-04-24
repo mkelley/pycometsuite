@@ -30,10 +30,19 @@ class TestCompositeScaler:
         p = sim_radius_uniform.particles
         assert all(s.scale(p) == 20)
 
-    def test_mult(self, sim_radius_uniform):
+    def test_mult_scalers(self, sim_radius_uniform):
         s = sc.CompositeScaler(sc.ConstantFactor(10)) * sc.ConstantFactor(2)
         p = sim_radius_uniform.particles
         assert all(s.scale(p) == 20)
+
+    def test_mult_composite_scalers(self, sim_radius_uniform):
+        s1 = sc.ConstantFactor(10) * sc.ConstantFactor(2)
+        s2 = sc.ConstantFactor(3) * sc.ConstantFactor(100)
+        s = s1 * s2
+        assert len(s) == 4
+
+        p = sim_radius_uniform.particles
+        assert all(s.scale(p) == 6000)
 
 
 class TestPSDScalers:

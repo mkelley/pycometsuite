@@ -106,10 +106,11 @@ class CompositeScaler(Scaler, UserList):
         return result
 
     def __imul__(self, scale):
-        if isinstance(scale, Scaler):
-            self.append(scale)
-        elif isinstance(scale, (CompositeScaler, list, tuple)):
+        # must test CompositeScaler before Scaler!
+        if isinstance(scale, (CompositeScaler, list, tuple)):
             self.extend(scale)
+        elif isinstance(scale, Scaler):
+            self.append(scale)
         elif isinstance(scale, (float, int)):
             self.append(ConstantFactor(scale))
         else:
