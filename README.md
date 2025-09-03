@@ -10,6 +10,8 @@ Documentation is available at [pycometsuite.readthedocs.io](https://pycometsuite
 
 This code has been used in the following publications:
 
+2. _A Large Outburst, Coma Asymmetries, and the Color of Comet 243P/NEAT._ Kelley, M. S. P., Protopapa, S., Bodewits, D. et al. 2025. _The Planetary Science Journal_ 6, 185
+
 1. _Early Activity in Comet C/2014 UN271 Bernardinelli-Bernstein as Observed by TESS._ Farnham, T. L., Kelley, M. S. P., and Bauer, J. M. 2021. _The Planetary Science Journal_ 2, 236
 
 ## Requirements
