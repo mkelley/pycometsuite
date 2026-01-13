@@ -338,9 +338,11 @@ Average rh (AU): {}
         self.particles = np.recarray(self.params["nparticles"], dtypes)
 
     def observe(self):
-        """Observe the particles with the observer..
+        """Observe the particles with the observer.
 
-        Use to force an update to `sky_coords`.
+        Update to ``sky_coords``.  The particle coordinates will be RA, DEc in
+        the J2000/ICRF reference frame.
+
 
         Parameters
         ----------

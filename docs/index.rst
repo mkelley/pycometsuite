@@ -39,8 +39,8 @@ Reproduce the syndynes of Reach et al. (2000) for comet 2P/Encke:
     >>> ve = [2.71884498e1, 1.09043893e1, -6.22859821e-04]
     >>> 
     >>> # KeplerState generates vectors based on Keplerian (two-body) propagation
-    >>> comet = KeplerState(rc, vc, date)
-    >>> earth = KeplerState(re, ve, date)
+    >>> comet = KeplerState(rc, vc, date, name="Encke")
+    >>> earth = KeplerState(re, ve, date, name="Earth")
     >>> 
     >>> # generate syndynes for each of these β values, a 200 day length, and 101 time steps
     >>> beta = [0.001, 0.002, 0.004, 0.006, 0.008, 0.01, 0.1]
@@ -103,8 +103,8 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> ve = [5.82028904e+00,  2.89897439e+01, -1.16199526e-03]
     >>> 
     >>> # two-body orbit propagation
-    >>> comet = KeplerState(rc, vc, date)
-    >>> earth = KeplerState(re, ve, date)
+    >>> comet = KeplerState(rc, vc, date, name="C/2009 P1")
+    >>> earth = KeplerState(re, ve, date, name="Earth")
     >>> 
     >>> # particle generator and parameters
     >>> #   - geometric "composition": beta = 0.57 / a / rho
@@ -132,12 +132,13 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> sim.observe()
     >>> 
     >>> # image with a 60x60 pixel camera, 1"/pixel
-    >>> camera = cs.Camera(shape=(60, 60), scale=[-1, 1])
+    >>> camera = cs.Camera(size=(60, 60), cdelt=[-1, 1])
     >>> camera.integrate(sim)
     >>> 
     >>> fig, ax = plt.subplots(figsize=(6, 6), dpi=200)
-    >>> ax.imshow(camera.data, vmin=0, vmax=50, cmap="gray_r", extent=[29, -31, -29, 31], origin="lower")
+    >>> ax.imshow(camera.data, vmin=0, vmax=50, cmap="gray_r", extent=[30, -30, -30, 30], origin="lower")
     >>> plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
+    >>> plt.tight_layout()
 
 .. attention::
 
