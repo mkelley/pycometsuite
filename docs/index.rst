@@ -152,10 +152,6 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
     >>> plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
     >>> plt.tight_layout()
 
-.. attention::
-
-    The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
-
 
 Indices and tables
 ==================

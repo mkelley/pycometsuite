@@ -84,16 +84,12 @@ Create a 60×60 pixel camera with a pixel scale of 1".  Image the total number o
 
     >>> def plot(camera):
     ...     fig, ax = plt.subplots(figsize=(7, 6), dpi=200)
-    ...     ax.imshow(camera.data, cmap="gray_r", extent=[29, -31, -29, 31], origin="lower")
+    ...     ax.imshow(camera.data, cmap="gray_r", extent=[30, -30, -30, 30], origin="lower")
     ...     fig.colorbar(ax.images[0])
     ...     plt.setp(ax, xlabel="RA offset (arcsec)", ylabel="Dec offset (arcsec)")
     ...     plt.tight_layout()
     >>>
     >>> plot(camera)
-
-.. attention::
-
-    The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
 
 
 Scaling simulations
