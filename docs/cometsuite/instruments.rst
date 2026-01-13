@@ -72,7 +72,7 @@ Create a 60×60 pixel camera with a pixel scale of 1".  Image the total number o
     :include-source:
     :show-source-link: False
 
-    >>> camera = cs.Camera(shape=(60, 60), scale=(-1, 1))
+    >>> camera = cs.Camera(size=(60, 60), cdelt=(-1, 1))
     >>> camera.integrate(sim)
 
 `camera.data` holds the resulting image:
@@ -112,7 +112,7 @@ Cometsuite contains a simple description for light scattered by particles, `come
     :show-source-link: False
 
     >>> scaler = cs.scalers.ScatteredLight(0.63)
-    >>> camera = cs.Camera(shape=(60, 60), scale=(-1, 1), scaler=scaler)
+    >>> camera = cs.Camera(size=(60, 60), cdelt=(-1, 1), scaler=scaler)
     >>> camera.integrate(sim)
     >>> plot(camera)  # note the change in the colorbar scale
 
@@ -153,3 +153,7 @@ Simulations can have particles picked from any size distribution, and the above 
     >>> camera.reset()  # clear previous integration
     >>> camera.integrate(sim)
     >>> plot(camera)
+
+.. automodapi:: cometsuite.instruments
+    :no-heading:
+    :headings: =-

@@ -8,8 +8,20 @@ Cometary dust dynamics simulator.
     :maxdepth: 2
     :caption: Contents:
 
-    instruments
+    cometsuite/instruments
     calibration
+    
+    cometsuite/simulation
+    cometsuite/xyzfile
+
+.. projection
+.. graphics
+.. state
+.. particle
+.. generators
+.. scalers
+.. integrator
+.. templates
 
 
 Quick start
@@ -144,12 +156,6 @@ Simulate the coma for T-ReCS observations of C/2009 P1:
 
     The asymmetry in the extent keyword of `imshow` is needed to align the simulation at the origin.  This may be fixed in a future version.
 
-.. Cometsuite
-.. ==========
-
-.. .. automodapi:: cometsuite
-..     :no-heading:
-..     :headings: =-
 
 Indices and tables
 ==================

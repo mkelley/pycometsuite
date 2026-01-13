@@ -114,7 +114,7 @@ units:
 
 ### XYZ v0
 
-Older versions of the file format can be read with `cometsuite.xyzfiles.XYZFile0`. The v0.x headers are key-value pairs, separated by a colon. Comments start with a "#" character in the first column:
+Older versions of the file format can be read with `cometsuite.xyzfiles.xyzfile0.XYZFile0`. The v0.x headers are key-value pairs, separated by a colon. Comments start with a "#" character in the first column:
 
 ```
 # CometSuite 0.9.5
