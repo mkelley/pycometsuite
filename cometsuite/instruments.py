@@ -157,42 +157,49 @@ class Instrument(object):
 class Camera(Instrument):
     """A CometSuite instrument that only takes images of the sky.
 
-    Integrate converts sky coordinates to pixels, and ensures that the
-    WCS is centered on the target, when needed.
+    Use the ``integrate()`` method to convert simulation sky coordinates to
+    pixel coordinates.
 
     Example usage::
 
         camera = Camera()
-        camera = Camera(shape=shape, scale=scale, [center=], [centeryx=])
-        camera = Camera(wcs=wcs, [shape=])
+        camera = Camera(size=size, cdelt=cdelt, [crval=], [crpix=])
+        camera = Camera(wcs=wcs, [size=])
         camera = Camera(fitsheader=h)
+
+
+    .. note::
+        Take care: the WCS parameters are (x, y) and use 1-based indexing.
+
 
     Parameters
     ----------
-    shape : array, optional
-        The y, x size of the camera. [pixels]
+    size : array, optional
+        The x, y size of the camera array. [pixels]
 
-    scale : array, optional
-        The spatial dispersion of the camera. [arcsec/pixel]
+    cdelt : array, optional
+        The x, y pixel scale of the camera. [arcsec/pixel]
 
-    center : array, optional
-        The center of the field of view.  If None, the FOV will be
-        centered on the target when the simulation is loaded.
+    crval : array, optional
+        The center of the field of view in world coordinates (RA, Dec).  If
+        ``None``, the FOV will be centered on the target when the first
+        simulation is observed. [degrees]
 
-    centeryx : array, optional
-        Center the WCS on this pixel.
+    crpix : array, optional
+        Place the coordinates ``crval`` on this x, y pixel, 1-based index (FITS
+        convention).
 
     wcs : astropy.wcs.WCS, optional
-        The WCS of the image.
+        The WCS of the image.  Requires ``size``.
 
-    fitsheader : string or astropy.io.fits.Header, optional
-        A FITS header from which `wcs` and image size may be defined.
+    fitsheader : astropy.io.fits.Header, optional
+        Get the WCS from this FITS header.
 
     scaler : Scaler or CompositeScaler, optional
         A particle scaler.
 
     normalizer : Scaler or CompositeScaler, optional
-        Use this scaling function for computing the normalization array `n`.
+        Use this scaling function for computing the normalization array ``n``.
 
     axes : array, optional
         Additional axes to add to the camera.  The first two axes will
@@ -206,22 +213,25 @@ class Camera(Instrument):
         Specify the range for the additional axes.  See `Instrument` for
         details.
 
+
     Attributes
     ----------
     n : ndarray
-      The normalization array, which is by default the number of
-      particles per pixel.
+        The normalization array, which is by default the number of particles per
+        pixel.
+
     data : ndarray
-      The observation data.
+        The observation data.
 
     """
 
     def __init__(
         self,
-        shape=(1024, 1024),
-        scale=(-1, 1),
-        center=None,
-        centeryx=None,
+        *,
+        size=(1024, 1024),
+        cdelt=(-1, 1),
+        crval=None,
+        crpix=None,
         wcs=None,
         fitsheader=None,
         scaler=None,
@@ -230,31 +240,28 @@ class Camera(Instrument):
         bins=None,
         range=None,
     ):
+        shape = size[::-1]
+        self.crval_defined = crval is not None
 
-        self.center = center
         if fitsheader is not None:
             self.wcs = WCS(fitsheader)
-            self.shape = (fitsheader["NAXIS1"], fitsheader["NAXIS2"])
         elif wcs is not None:
             self.wcs = wcs
-            self.shape = shape
         else:
-            self.shape = shape
-            self.scale = scale
-            if centeryx is None:
-                centeryx = np.array(self.shape) / 2.0
+            if crpix is None:
+                crpix = np.array(size) / 2.0 + 0.5
 
             self.wcs = WCS(naxis=2)
-            self.wcs.wcs.crpix = centeryx
-            self.wcs.wcs.cdelt = np.array(self.scale) / 3600.0
+            self.wcs.wcs.crpix = crpix
+            self.wcs.wcs.cdelt = np.array(cdelt) / 3600.0
             self.wcs.wcs.ctype = ["RA---TAN", "DEC--TAN"]
-            if self.center is not None:
-                self.wcs.wcs.crval = self.center
+            if self.crval_defined:
+                self.wcs.wcs.crval = crval
 
         _axes = ("y", "x")
         _bins = [
-            np.arange(self.shape[0] + 1, dtype=int),
-            np.arange(self.shape[1] + 1, dtype=int),
+            np.arange(shape[0] + 1, dtype=int) - 0.5,
+            np.arange(shape[1] + 1, dtype=int) - 0.5,
         ]
         if axes is not None:
             # add additional axes to the camera
@@ -266,30 +273,47 @@ class Camera(Instrument):
             self, _axes, scaler=scaler, normalizer=normalizer, bins=_bins
         )
 
-    @property
-    def centeryx(self):
-        xy = self.wcs.wcs_world2pix(self.center[0], self.center[1], 0)
-        return np.array(xy[::-1])
-
     def sky2xy(self, sim):
-        """Compute a simluation's particle's xy coordinates."""
+        """Compute a simulation's particle's xy coordinates.
 
-        if self.center is None:
+        Coordinates are saved to ``sim.array_coords``.
+
+        """
+
+        if not self.crval_defined:
             # use the simulation to define the center of the FOV
-            self.center = np.degrees(sim.sky_coords.target).flatten()
-            self.wcs.wcs.crval = self.center
+            self.wcs.wcs.crval = np.degrees(sim.sky_coords.target).flatten()
+            self.crval_defined = True
+
         x, y = np.array(self.wcs.wcs_world2pix(sim.lam, sim.bet, 0))
+
         dtype = [("x", float), ("y", float)]
         sim.array_coords = np.recarray(x.shape, dtype=dtype)
         sim.array_coords.x = x
         sim.array_coords.y = y
 
     def integrate(self, sim, reobserve=True):
+        """Integrate array on a simulation.
+
+
+        Parameters
+        ----------
+        sim : Simulation
+            The simulation to observe.  If ``array_coords`` is not defined, it
+            will be updated.
+
+        reobserve : bool, optional
+            Force an update of the simulation's x, y particle positions.
+
+        """
+
         if (sim.array_coords is None) or reobserve:
             self.sky2xy(sim)
-        i = (sim.x >= 0) * (sim.x < self.shape[0])
-        i *= (sim.y >= 0) * (sim.y < self.shape[1])
-        Instrument.integrate(self, sim[i])
+
+        i = (sim.x >= 0) * (sim.x < self.data.shape[1])
+        i *= (sim.y >= 0) * (sim.y < self.data.shape[0])
+        if any(i):
+            super().integrate(sim[i])
 
     def write(self, filename, normalized=False, **keywords):
         """Write a FITS file, complete with WCS.
@@ -298,14 +322,17 @@ class Camera(Instrument):
           [0] The data (possibly normalized)
           [1] The number of particles per pixel.
 
+
         Parameters
         ----------
         filename : string
-          The file name.
+            The file name.
+
         normalized : bool
-          Set to True to save normalized data.
+            Set to True to save normalized data.
+
         **keywords
-          fits.HDUList.writeto() keywords.
+            fits.HDUList.writeto() keywords.
 
         """
 
@@ -389,30 +416,30 @@ class Photometer(Instrument):
 
 def ccd():
     """Generic CCD."""
-    return Camera(scaler=scalers.ScatteredLight(0.6), shape=(1024, 1024), scale=(-1, 1))
+    return Camera(scaler=scalers.ScatteredLight(0.6), size=(1024, 1024), cdelt=(-1, 1))
 
 
 def ircam():
     """Generic 10 um camera."""
-    return Camera(scaler=scalers.ThermalEmission(10), shape=(1024, 1024), scale=(-1, 1))
+    return Camera(scaler=scalers.ThermalEmission(10), size=(1024, 1024), cdelt=(-1, 1))
 
 
 def acs():
     """HST Advanced Camera for Surveys."""
     return Camera(
-        scaler=scalers.ScatteredLight(0.6), shape=(4096, 4096), scale=(-0.05, 0.05)
+        scaler=scalers.ScatteredLight(0.6), size=(4096, 4096), cdelt=(-0.05, 0.05)
     )
 
 
 def wfc3_uvis():
     """HST Wide Field Camera 3, UVIS detector."""
     return Camera(
-        scaler=scalers.ScatteredLight(0.6), shape=(4096, 4096), scale=(-0.04, 0.04)
+        scaler=scalers.ScatteredLight(0.6), size=(4096, 4096), cdelt=(-0.04, 0.04)
     )
 
 
 def di_mri():
     """Deep Impact Flyby spacecraft Medium Resolution Imager."""
     return Camera(
-        scaler=scalers.ScatteredLight(0.6), shape=(1024, 1024), scale=(-2.1, 2.1)
+        scaler=scalers.ScatteredLight(0.6), size=(1024, 1024), cdelt=(-2.1, 2.1)
     )

@@ -67,8 +67,8 @@ with cs.XYZFile("iso.xyz", "w", sim) as outf:
     outf.write_particles(sim.particles)
 
 camera = cs.Camera(
-    shape=(300, 300),
-    scale=np.r_[-0.09, 0.09],
+    naxis=(300, 300),
+    cdelt=np.r_[-0.09, 0.09],
     center=np.degrees(sim.sky_coords.target.flatten()),
 )
 camera.integrate(sim)
