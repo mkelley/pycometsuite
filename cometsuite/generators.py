@@ -751,8 +751,8 @@ class Isotropic(Vej):
 
     __doc__ = ["Isotropic emission."]
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[1 : doc.index("Parameters\n")])
-    __doc__.extend(doc[doc.index("Attributes\m") :])
+    __doc__.extend(doc[1 : doc.index("Parameters")])
+    __doc__.extend(doc[doc.index("Attributes") :])
     __doc__ = "\n".join(__doc__)
     del doc
 
@@ -795,7 +795,7 @@ class ActiveArea(Vej):
 
     __doc__ = __doc__.splitlines()
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[doc.index("Attributes\n") :])
+    __doc__.extend(doc[doc.index("Attributes") :])
     __doc__ = "\n".join(__doc__)
     del doc
 
@@ -856,7 +856,7 @@ class UniformLatitude(Vej):
 
     __doc__ = __doc__.splitlines()
     doc = Vej.__doc__.splitlines()
-    __doc__.extend(doc[doc.index("Attributes\n") :])
+    __doc__.extend(doc[doc.index("Attributes") :])
     __doc__ = "\n".join(__doc__)
     del doc
 
