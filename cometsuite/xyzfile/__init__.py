@@ -25,7 +25,7 @@ def xyz_version(filename):
         # Test for v0:
         with open(filename, "rb") as inf:
             # should start with a version comment
-            line = inf.readline()
+            line = inf.readline().decode()
 
         match = re.findall(
             r"^#\s+CometSuite\s+(\d+)(\.\d+)(\.\d+)?\s*\n", line, re.IGNORECASE
